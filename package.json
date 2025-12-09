@@ -1,6 +1,12 @@
 {
-  "name": "Genesis",
+  "name": "genesis",
+  "version": "1.0.0",
   "private": true,
+  "description": "This Turborepo starter is maintained by the Turborepo core team.",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -8,13 +14,24 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
   },
+  "dependencies": {
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-only-warn": "^1.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-turbo": "^2.6.0",
+    "eslint-scope": "^8.4.0",
+    "eslint-visitor-keys": "^4.2.1",
+    "typescript-eslint": "^8.48.1"
+  },
   "devDependencies": {
     "prettier": "^3.7.4",
     "turbo": "^2.6.3",
     "typescript": "5.9.2"
   },
-  "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "pnpm@9.0.0"
 }
