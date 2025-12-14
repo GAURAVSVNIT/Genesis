@@ -3,17 +3,24 @@ from agents.intent import extract_intent
 from agents.blog_writer import write_blog
 from agents.safety import safety_check
 
-class BlogState(dict):
-    pass
+from typing import TypedDict, Optional
+
+class BlogState(TypedDict):
+    prompt: str
+    tone: str
+    length: str
+    intent: Optional[str]
+    blog: Optional[str]
+    status: Optional[str]
 
 graph = StateGraph(BlogState)
 
-graph.add_node("intent", extract_intent)
-graph.add_node("write", write_blog)
-graph.add_node("safety", safety_check)
+graph.add_node("intent_agent", extract_intent)
+graph.add_node("write_agent", write_blog)
+graph.add_node("safety_agent", safety_check)
 
-graph.set_entry_point("intent")
-graph.add_edge("intent", "write")
-graph.add_edge("write", "safety")
+graph.set_entry_point("intent_agent")
+graph.add_edge("intent_agent", "write_agent")
+graph.add_edge("write_agent", "safety_agent")
 
 blog_graph = graph.compile()
