@@ -22,5 +22,6 @@ graph.add_node("safety_agent", safety_check)
 graph.set_entry_point("intent_agent")
 graph.add_edge("intent_agent", "write_agent")
 graph.add_edge("write_agent", "safety_agent")
+graph.set_finish_point("safety_agent")
 
 blog_graph = graph.compile()
