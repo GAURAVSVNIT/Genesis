@@ -6,5 +6,6 @@ langchain-core==0.2.38
 langchain-google-genai==1.0.10
 langgraph==0.2.3
 numpy<2.0.0
-redis==5.0.3
+upstash-redis
 pydantic-settings==2.2.1
+

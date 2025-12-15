@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from agents.orchestrator import run_blog_agent
-from core.redis import get_redis_client
-from redis.asyncio import Redis
+from core.upstash_redis import get_redis_client
+from upstash_redis import Redis
 
 router= APIRouter()
 
@@ -13,10 +13,10 @@ async def check_rate_limit(request: Request, redis: Redis = Depends(get_redis_cl
     key = f"rate_limit:{client_ip}"
     
     # Simple fixed window counter
-    current_count = await redis.incr(key)
+    current_count = redis.incr(key)
     
     if current_count == 1:
-        await redis.expire(key, 60) # Reset after 60 seconds
+        redis.expire(key, 60) # Reset after 60 seconds
         
     if current_count > 5:
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Max 5 requests per minute.")

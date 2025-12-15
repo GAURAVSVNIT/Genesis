@@ -9,7 +9,7 @@ import {
     CardTitle,
 } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
-import { getGuestHistory } from '@/lib/api/guest'
+import { performCompleteMigration } from '@/lib/utils/migration'
 import { Loader2 } from 'lucide-react'
 
 export default function Page() {
@@ -17,54 +17,34 @@ export default function Page() {
     const [migrationStatus, setMigrationStatus] = useState('')
 
     useEffect(() => {
-        const migrateChats = async () => {
+        const handleMigration = async () => {
             const guestId = localStorage.getItem('guestId')
             if (!guestId) return
 
             setIsMigrating(true)
-            setMigrationStatus('Found temporary chat history...')
+            setMigrationStatus('Checking for temporary chat history...')
 
             try {
-                // 1. Fetch from Redis
-                const history = await getGuestHistory(guestId)
+                const result = await performCompleteMigration(guestId)
 
-                if (history.length > 0) {
-                    setMigrationStatus(`Migrating ${history.length} messages...`)
-                    const supabase = createClient()
-
-                    // 2. Get current user
-                    const { data: { user } } = await supabase.auth.getUser()
-
-                    if (user) {
-                        // 3. Save to Supabase (Assumes 'chats' table exists)
-                        // Note: You might need to adjust the table/column names
-                        const { error } = await supabase.from('chats').insert(
-                            history.map(msg => ({
-                                user_id: user.id,
-                                role: msg.role,
-                                content: msg.content,
-                                created_at: msg.timestamp
-                            }))
-                        )
-
-                        if (error) {
-                            console.error('Migration failed:', error)
-                            setMigrationStatus('Failed to migrate history.')
-                        } else {
-                            setMigrationStatus('Chat history saved!')
-                        }
+                if (result.success) {
+                    if (result.messageCount > 0) {
+                        setMigrationStatus(`✓ Successfully migrated ${result.messageCount} messages!`)
+                    } else {
+                        setMigrationStatus('No chat history to migrate.')
                     }
+                } else {
+                    setMigrationStatus(`Migration failed: ${result.error}`)
                 }
             } catch (error) {
                 console.error('Migration error:', error)
+                setMigrationStatus('An unexpected error occurred during migration.')
             } finally {
-                // 4. Cleanup
-                localStorage.removeItem('guestId')
                 setIsMigrating(false)
             }
         }
 
-        migrateChats()
+        handleMigration()
     }, [])
 
     return (

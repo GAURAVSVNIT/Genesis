@@ -3,15 +3,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.blog import router as blog_router
 from api.v1.guest import router as guest_router
-from core.redis import RedisClient
+from core.upstash_redis import UpstashRedisClient
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    RedisClient.get_instance()
+    UpstashRedisClient.get_instance()
     yield
     # Shutdown
-    await RedisClient.close()
+    await UpstashRedisClient.close()
 
 app = FastAPI(title="Genesis", description="Genesis API", version="1.0.0", lifespan=lifespan)
 
@@ -30,8 +30,9 @@ app.include_router(guest_router, prefix="/v1/guest")
 @app.get("/v1/health/redis")
 async def health_check_redis():
     try:
-        redis = RedisClient.get_instance()
-        pong = await redis.ping()
+        redis = UpstashRedisClient.get_instance()
+        pong = redis.ping()
         return {"status": "ok", "redis": "connected" if pong else "disconnected"}
     except Exception as e:
         return {"status": "error", "redis": str(e)}
+

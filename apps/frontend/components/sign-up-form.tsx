@@ -40,7 +40,8 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: {
+                options: 
+                {
                     emailRedirectTo: `${window.location.origin}/protected`,
                 },
             })
