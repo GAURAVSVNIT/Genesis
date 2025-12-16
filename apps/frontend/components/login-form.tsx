@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { performCompleteMigration } from '@/lib/utils/migration'
 
 export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
     const [email, setEmail] = useState('')
@@ -30,12 +31,29 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
         setError(null)
 
         try {
+            // Backup guestId to sessionStorage BEFORE auth
+            const guestId = localStorage.getItem('guestId')
+            if (guestId) {
+                sessionStorage.setItem('pendingMigrationGuestId', guestId)
+                console.log('Backed up guestId for migration:', guestId)
+            }
+
             const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
             if (error) throw error
+
+            // Trigger migration immediately after successful login
+            console.log('Login successful. Attempting migration...')
+            const migrationResult = await performCompleteMigration()
+
+            if (migrationResult.success && migrationResult.messageCount > 0) {
+                console.log(`✅ Migrated ${migrationResult.messageCount} guest chats!`)
+            }
+
             // Update this route to redirect to an authenticated route. The user already has an active session.
+            router.refresh()
             router.push('/')
         } catch (error: unknown) {
             setError(error instanceof Error ? error.message : 'An error occurred')

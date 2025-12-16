@@ -158,8 +158,12 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
                                 <p className="text-sm text-muted-foreground">
                                     <Link href="/auth/sign-up" className="text-primary underline underline-offset-4">
                                         Sign up
-                                    </Link>{' '}
-                                    for unlimited access
+                                    </Link>
+                                    {' '}or{' '}
+                                    <Link href="/auth/login" className="text-primary underline underline-offset-4">
+                                        Sign in
+                                    </Link>
+                                    {' '}for unlimited access
                                 </p>
                             </div>
                         ) : (

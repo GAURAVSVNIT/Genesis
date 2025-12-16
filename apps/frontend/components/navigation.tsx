@@ -1,11 +1,50 @@
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { LogoutButton } from '@/components/logout-button'
+'use client'
 
-export async function Navigation() {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getClaims()
-    const user = data?.claims
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { LogoutButton } from '@/components/logout-button'
+import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+
+export function Navigation() {
+    const [user, setUser] = useState<User | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const supabase = createClient()
+
+        // Get initial user
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user)
+            setLoading(false)
+        })
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
+
+    if (loading) {
+        return (
+            <nav className="border-b">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center gap-8">
+                            <Link href="/" className="text-xl font-bold">
+                                Genesis
+                            </Link>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            {/* Loading state */}
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        )
+    }
 
     return (
         <nav className="border-b">

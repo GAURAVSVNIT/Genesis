@@ -37,6 +37,13 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
         }
 
         try {
+            // Backup guestId to sessionStorage BEFORE auth redirect
+            const guestId = localStorage.getItem('guestId')
+            if (guestId) {
+                sessionStorage.setItem('pendingMigrationGuestId', guestId)
+                console.log('Backed up guestId for migration:', guestId)
+            }
+
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -46,7 +53,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                 },
             })
             if (error) throw error
-            router.push('/auth/sign-up-success')
+            router.push('/auth/verify-email')
         } catch (error: unknown) {
             setError(error instanceof Error ? error.message : 'An error occurred')
         } finally {
