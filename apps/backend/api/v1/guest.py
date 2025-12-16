@@ -38,3 +38,12 @@ async def get_guest_history(
     history = [json.loads(m) for m in messages_raw]
     return history
 
+@router.delete("/chat/{guest_id}")
+async def delete_guest_history(
+    guest_id: str, 
+    redis: Redis = Depends(get_redis_client)
+):
+    key = f"guest:{guest_id}"
+    redis.delete(key)
+    return {"status": "deleted", "guest_id": guest_id}
+

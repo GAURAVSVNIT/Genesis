@@ -14,6 +14,23 @@ export async function GET(request: NextRequest) {
     redirectTo.searchParams.delete('token_hash')
     redirectTo.searchParams.delete('type')
 
+    const code = searchParams.get('code')
+    if (code) {
+        const supabase = await createClient()
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error) {
+            if (next) {
+                redirectTo.pathname = next
+            }
+            return NextResponse.redirect(redirectTo)
+        } else {
+            console.error('Auth Code Exchange Error:', error)
+            redirectTo.pathname = '/auth/error'
+            redirectTo.searchParams.set('error', error.message)
+            return NextResponse.redirect(redirectTo)
+        }
+    }
+
     if (token_hash && type) {
         const supabase = await createClient()
 
@@ -24,11 +41,16 @@ export async function GET(request: NextRequest) {
         if (!error) {
             redirectTo.searchParams.delete('next')
             return NextResponse.redirect(redirectTo)
+        } else {
+             console.error('Auth Verify OTP Error:', error)
+             redirectTo.pathname = '/auth/error'
+             redirectTo.searchParams.set('error', error.message)
+             return NextResponse.redirect(redirectTo)
         }
     }
 
     // return the user to an error page with some instructions
     redirectTo.pathname = '/auth/error'
-    redirectTo.searchParams.set('error', 'Invalid confirmation link')
+    redirectTo.searchParams.set('error', 'Invalid confirmation link (No code or token_hash)')
     return NextResponse.redirect(redirectTo)
 }

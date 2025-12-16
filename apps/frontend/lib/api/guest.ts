@@ -40,3 +40,13 @@ export async function getGuestHistory(guestId: string): Promise<ChatMessage[]> {
         return []
     }
 }
+
+export async function deleteGuestHistory(guestId: string): Promise<void> {
+    const response = await fetch(`${BACKEND_URL}/v1/guest/chat/${guestId}`, {
+        method: 'DELETE',
+    })
+
+    if (!response.ok) {
+        throw new Error('Failed to delete guest history')
+    }
+}

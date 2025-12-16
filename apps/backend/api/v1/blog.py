@@ -1,14 +1,13 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from agents.orchestrator import run_blog_agent
-from core.upstash_redis import get_redis_client
-from upstash_redis import Redis
+from core.upstash_redis import get_redis_client, RedisClientType
 
 router= APIRouter()
 
 from schemas import BlogRequest
 
-async def check_rate_limit(request: Request, redis: Redis = Depends(get_redis_client)):
+async def check_rate_limit(request: Request, redis: RedisClientType = Depends(get_redis_client)):
     client_ip = request.client.host
     key = f"rate_limit:{client_ip}"
     

@@ -1,5 +1,19 @@
+import { deleteGuestHistory, getGuestHistory } from '@/lib/api/guest'
 import { createClient } from '@/lib/supabase/client'
-import { getGuestHistory } from '@/lib/api/guest'
+
+export async function performCompleteMigration(guestId: string): Promise<MigrationResult> {
+    const result = await migrateGuestChatToSupabase(guestId)
+
+    if (result.success) {
+        // Keeping guest history in Redis for now (Copy instead of Move)
+        // await deleteGuestHistory(guestId).catch(console.error)
+    }
+
+    // Always cleanup local guest session
+    cleanupGuestSession(guestId)
+
+    return result
+}
 
 export interface MigrationResult {
     success: boolean
@@ -68,18 +82,4 @@ export async function migrateGuestChatToSupabase(guestId: string): Promise<Migra
 export function cleanupGuestSession(guestId: string): void {
     localStorage.removeItem('guestId')
     console.log(`Cleaned up guest session: ${guestId}`)
-}
-
-/**
- * Complete migration workflow: migrate data and cleanup
- * @param guestId - The guest session ID from localStorage
- * @returns Migration result
- */
-export async function performCompleteMigration(guestId: string): Promise<MigrationResult> {
-    const result = await migrateGuestChatToSupabase(guestId)
-
-    // Always cleanup guest session, even if migration failed
-    cleanupGuestSession(guestId)
-
-    return result
 }
