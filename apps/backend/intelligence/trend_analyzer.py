@@ -333,7 +333,7 @@ class TrendAnalyzer:
         words = re.findall(r'\b[a-z]{4,}\b', text.lower())
 
         # Exclude stop words and existing keywords
-        stop_words = {"this", "that", "with", "from", "have", "been", "will", "your", "more", "about"}
+        stop_words = {"this", "that", "with", "from", "have", "been", "will", "your", "more", "about", "into", "what", "when", "where", "which", "write", "create"}
         exclude_set = set(w.lower() for w in exclude_words) | stop_words
 
         # Count word frequency
@@ -345,7 +345,8 @@ class TrendAnalyzer:
         # Sort by frequency
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
 
-        return [word for word, freq in sorted_words[:10] if freq > 1]
+        # Return words (removed frequency > 1 requirement for short prompts)
+        return [word for word, freq in sorted_words[:10]]
 
     async def analyze_for_generation(
         self,
