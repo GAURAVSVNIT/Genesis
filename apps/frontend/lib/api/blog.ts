@@ -9,12 +9,25 @@ export interface BlogRequest {
 }
 
 export interface BlogResponse {
-    blog: string
+    success: boolean
+    content: string
+    seo_score: number
+    uniqueness_score: number
+    engagement_score: number
+    cost_usd: number
+    total_cost_usd: number
+    cached: boolean
+    cache_hit_rate?: number
+    generation_time_ms: number
+    rate_limit_remaining: number
+    rate_limit_reset_after: number
+    safety_checks?: Record<string, unknown>
+    tokens_used?: number
 }
 
 export async function generateBlog(request: BlogRequest): Promise<BlogResponse> {
     try {
-        const response = await fetch(`${BACKEND_URL}/v1/blog/generate`, {
+        const response = await fetch(`${BACKEND_URL}/v1/content/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

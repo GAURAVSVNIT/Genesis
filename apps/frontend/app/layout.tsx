@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
+import { SignupMigrationHandler } from "@/components/signup-migration-handler";
+import { GuestSessionInit } from "@/components/guest-session-init";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,10 +31,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <GuestSessionInit />
         <Navigation />
         <GuestMigrationHandler />
+        <SignupMigrationHandler />
         {children}
       </body>
     </html>
   );
 }
+
