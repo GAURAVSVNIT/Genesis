@@ -125,47 +125,35 @@ async def get_top_trends(
 @router.get("/sources")
 async def get_available_sources():
     """
-    Get list of available trend sources with their configuration status.
+    Get list of available trend sources.
     """
-    collector = TrendCollector()
-    available_sources = collector.get_available_sources()
-    
-    all_sources = [
-        {
-            "id": "google_trends",
-            "name": "Google Trends",
-            "description": "Search trends and related queries from Google",
-            "enabled": "google_trends" in available_sources,
-            "requires": "SERPER_API_KEY"
-        },
-        {
-            "id": "twitter",
-            "name": "Twitter/X",
-            "description": "Trending topics and hashtags from Twitter/X",
-            "enabled": "twitter" in available_sources,
-            "requires": "TWITTER_BEARER_TOKEN"
-        },
-        {
-            "id": "reddit",
-            "name": "Reddit",
-            "description": "Trending posts and discussions from Reddit",
-            "enabled": "reddit" in available_sources,
-            "requires": "REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET"
-        },
-        {
-            "id": "linkedin",
-            "name": "LinkedIn",
-            "description": "Professional trends from LinkedIn (limited)",
-            "enabled": False,
-            "requires": "Not available"
-        }
-    ]
-    
     return {
-        "sources": all_sources,
-        "available_count": len(available_sources),
-        "total_count": len(all_sources),
-        "available_sources": available_sources
+        "sources": [
+            {
+                "id": "google_trends",
+                "name": "Google Trends",
+                "description": "Search trends and related queries from Google",
+                "enabled": True
+            },
+            {
+                "id": "twitter",
+                "name": "Twitter/X",
+                "description": "Trending topics and hashtags from Twitter/X",
+                "enabled": True
+            },
+            {
+                "id": "reddit",
+                "name": "Reddit",
+                "description": "Trending posts and discussions from Reddit",
+                "enabled": True
+            },
+            {
+                "id": "linkedin",
+                "name": "LinkedIn",
+                "description": "Professional trends from LinkedIn (limited)",
+                "enabled": False
+            }
+        ]
     }
 
 
