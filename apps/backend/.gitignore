@@ -29,6 +29,14 @@ dist/
 .eggs/
 
 # ===============================
+# GCP Service Account & Secrets
+# ===============================
+service-account-key.json
+service-account-*.json
+.env
+.env.local
+
+# ===============================
 # Dependency caches
 # ===============================
 .pip-cache/

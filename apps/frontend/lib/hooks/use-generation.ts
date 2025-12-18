@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { generateBlog, type BlogRequest } from '@/lib/api/blog'
+import { generateBlog, type BlogRequest, type BlogResponse } from '@/lib/api/blog'
 import { incrementUsage, hasReachedLimit, getRemainingGenerations } from '@/lib/api/usage'
 import { saveGuestMessage } from '@/lib/api/guest'
 import { createClient } from '@/lib/supabase/client'
@@ -7,11 +7,15 @@ import { createClient } from '@/lib/supabase/client'
 export function useGeneration(isAuthenticated: boolean) {
     const [isLoading, setIsLoading] = useState(false)
     const [generatedContent, setGeneratedContent] = useState<string | null>(null)
+    const [metrics, setMetrics] = useState<Partial<BlogResponse> | undefined>()
     const [error, setError] = useState<string | null>(null)
-    const [remainingGenerations, setRemainingGenerations] = useState(getRemainingGenerations())
+    const [remainingGenerations, setRemainingGenerationsState] = useState(5) // Default value to avoid hydration mismatch
     const [guestId, setGuestId] = useState<string | null>(null)
 
     useEffect(() => {
+        // Update remaining generations after hydration
+        setRemainingGenerationsState(getRemainingGenerations())
+        
         if (!isAuthenticated) {
             let id = localStorage.getItem('guestId')
             if (!id) {
@@ -58,7 +62,8 @@ export function useGeneration(isAuthenticated: boolean) {
             }
 
             const response = await generateBlog(request)
-            setGeneratedContent(response.blog)
+            setGeneratedContent(response.content)
+            setMetrics(response)
 
             // Save response
             if (!isAuthenticated && guestId) {
@@ -85,7 +90,7 @@ export function useGeneration(isAuthenticated: boolean) {
             // Increment usage for anonymous users
             if (!isAuthenticated) {
                 incrementUsage()
-                setRemainingGenerations(getRemainingGenerations())
+                setRemainingGenerationsState(getRemainingGenerations())
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate content')
@@ -98,6 +103,7 @@ export function useGeneration(isAuthenticated: boolean) {
         generate,
         isLoading,
         generatedContent,
+        metrics,
         error,
         remainingGenerations,
         hasReachedLimit: !isAuthenticated && hasReachedLimit(),

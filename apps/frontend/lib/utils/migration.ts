@@ -25,59 +25,61 @@ function getGuestIdForMigration(): string | null {
 }
 
 /**
- * Migrates guest chat history from Redis to Supabase
- * @param guestId - The guest session ID from localStorage
- * @returns Migration result with success status and message count
+ * Perform complete guest-to-user migration
+ * Migrates guest chat from backend PostgreSQL to authenticated user account
  */
-export async function migrateGuestChatToSupabase(guestId: string): Promise<MigrationResult> {
-    console.log(`📦 [MIGRATION START] Guest ID: ${guestId}`)
+export async function performCompleteMigration(guestId?: string): Promise<MigrationResult> {
+    console.log('📦 [MIGRATION START] Checking for guest data...')
     try {
-        // 1. Fetch guest chat history from Redis (via backend API)
-        console.log('⏳ [STEP 1/4] Fetching chat history from Redis...')
-        const history = await getGuestHistory(guestId)
-        console.log(`✓ [STEP 1/4] Redis returned ${history.length} messages`)
+        // Get guestId from storage or use provided one
+        const targetGuestId = guestId || getGuestIdForMigration()
 
-        if (!history || history.length === 0) {
-            console.log('ℹ️ [MIGRATION END] No chat history found - nothing to migrate')
+        if (!targetGuestId) {
+            console.log('ℹ️ [MIGRATION] No guest ID found - nothing to migrate')
             return {
                 success: true,
-                messageCount: 0,
-                error: 'No chat history found'
+                messageCount: 0
             }
         }
 
-        // 2. Get current authenticated user
-        console.log('⏳ [STEP 2/4] Verifying user authentication...')
+        // Get authenticated user
+        console.log('⏳ [STEP 1/2] Verifying user authentication...')
         const supabase = createClient()
         const { data: { user }, error: userError } = await supabase.auth.getUser()
 
         if (userError || !user) {
-            console.error('❌ [STEP 2/4] Auth failed:', userError?.message)
+            console.error('❌ [STEP 1/2] Auth failed:', userError?.message)
             throw new Error('User not authenticated')
         }
-        console.log(`✓ [STEP 2/4] User authenticated: ${user.id}`)
+        console.log(`✓ [STEP 1/2] User authenticated: ${user.id}`)
 
-        // 3. Insert chat history into Supabase 'chats' table
-        console.log(`⏳ [STEP 3/4] Inserting ${history.length} messages into Supabase...`)
-        const { error: insertError } = await supabase.from('chats').insert(
-            history.map(msg => ({
-                user_id: user.id,
-                role: msg.role,
-                content: msg.content,
-                created_at: msg.timestamp
-            }))
-        )
+        // Call backend migration endpoint
+        console.log(`⏳ [STEP 2/2] Calling backend migration for guest ${targetGuestId}...`)
+        const response = await fetch(`http://localhost:8000/v1/guest/migrate/${targetGuestId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                authenticated_user_id: user.id
+            })
+        })
 
-        if (insertError) {
-            console.error('❌ [STEP 3/4] Insert failed:', insertError.message)
-            throw new Error(`Failed to insert chat history: ${insertError.message}`)
+        if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || 'Migration failed')
         }
-        console.log(`✓ [STEP 3/4] Successfully inserted ${history.length} messages`)
 
-        console.log('✅ [MIGRATION END] Success!')
+        const result = await response.json()
+        console.log(`✓ [STEP 2/2] Backend migration successful`)
+
+        // Clear guest ID
+        console.log('🧹 [CLEANUP] Clearing guest session...')
+        cleanupGuestSession(targetGuestId)
+
+        console.log(`✅ [MIGRATION END] Success! Migrated ${result.messages_migrated} messages`)
+
         return {
             success: true,
-            messageCount: history.length
+            messageCount: result.messages_migrated || 0
         }
     } catch (error) {
         console.error('❌ [MIGRATION ERROR]', error)
@@ -98,34 +100,4 @@ export function cleanupGuestSession(guestId: string): void {
     localStorage.removeItem('guestId')
     sessionStorage.removeItem('pendingMigrationGuestId')
     console.log('✓ [CLEANUP] Complete - localStorage and sessionStorage cleared')
-}
-
-/**
- * Complete migration workflow: migrate data and cleanup
- * Uses both localStorage and sessionStorage to find guestId
- * @param guestId - Optional guest ID (if not provided, will auto-detect)
- * @returns Migration result
- */
-export async function performCompleteMigration(guestId?: string): Promise<MigrationResult> {
-    console.log('🚀 [performCompleteMigration] Starting...')
-
-    // Use provided guestId or auto-detect from storage
-    const targetGuestId = guestId || getGuestIdForMigration()
-
-    if (!targetGuestId) {
-        // User signed up/in without creating guest chats - this is normal, not an error
-        console.log('ℹ️ [performCompleteMigration] No guest session found - skipping migration')
-        return {
-            success: true,
-            messageCount: 0
-        }
-    }
-
-    console.log(`✓ [performCompleteMigration] Found guest ID: ${targetGuestId}`)
-    const result = await migrateGuestChatToSupabase(targetGuestId)
-
-    // Always cleanup guest session, even if migration failed
-    cleanupGuestSession(targetGuestId)
-
-    return result
 }

@@ -30,7 +30,7 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
     const [length, setLength] = useState('medium')
     const [showAuthGate, setShowAuthGate] = useState(false)
 
-    const { generate, isLoading, generatedContent, error, remainingGenerations, hasReachedLimit } =
+    const { generate, isLoading, generatedContent, metrics, error, remainingGenerations, hasReachedLimit } =
         useGeneration(isAuthenticated)
 
     const handleModeChange = (newMode: Mode) => {
@@ -186,7 +186,7 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
             </Card>
 
             {/* Generated Content */}
-            <GenerationResult content={generatedContent} isLoading={isLoading} />
+            <GenerationResult content={generatedContent} isLoading={isLoading} metrics={metrics} />
         </div>
     )
 }

@@ -37,10 +37,12 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
         }
 
         try {
-            // Backup guestId to sessionStorage BEFORE auth redirect
+            // Backup guestId BEFORE auth redirect
             const guestId = localStorage.getItem('guestId')
             if (guestId) {
                 sessionStorage.setItem('pendingMigrationGuestId', guestId)
+                // Store in cookie for server-side access in confirm route
+                document.cookie = `pendingMigrationGuestId=${guestId}; path=/; max-age=3600`
                 console.log('Backed up guestId for migration:', guestId)
             }
 

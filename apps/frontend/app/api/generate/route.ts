@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     
     // Forward to Python backend
-    const response = await fetch("http://127.0.0.1:8000/v1/blog/generate", {
+    const response = await fetch("http://127.0.0.1:8000/v1/content/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

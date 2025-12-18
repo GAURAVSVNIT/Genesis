@@ -4,9 +4,10 @@ import os
 # Load environment variables first
 dotenv.load_dotenv()
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from core.vertex_ai import get_vertex_ai_service
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", api_key=os.getenv("GOOGLE_API_KEY"))
+# Initialize Vertex AI service
+llm = get_vertex_ai_service(project_id=os.getenv("GCP_PROJECT_ID"), model="gemini-2.0-flash")
 
 async def plan(state):
     """
