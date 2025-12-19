@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '@/components/ui/card'
 import { useState } from 'react'
+import { Copy, Check, Download, Share2 } from 'lucide-react'
 
 interface GenerationMetrics {
     seo_score?: number
@@ -39,19 +40,43 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
         setTimeout(() => setCopied(false), 2000)
     }
 
+    const handleDownload = () => {
+        if (!content) return
+        const element = document.createElement('a')
+        const file = new Blob([content], { type: 'text/plain' })
+        element.href = URL.createObjectURL(file)
+        element.download = 'generated-content.txt'
+        document.body.appendChild(element)
+        element.click()
+        document.body.removeChild(element)
+    }
+
     const formatScore = (score: number | undefined) => {
         if (score === undefined) return 'N/A'
-        return (score * 100).toFixed(1) + '%'
+        return (score * 100).toFixed(0)
+    }
+
+    const getScoreColor = (score: number | undefined) => {
+        if (score === undefined) return 'text-muted-foreground'
+        if (score >= 0.8) return 'text-green-600 dark:text-green-400'
+        if (score >= 0.6) return 'text-yellow-600 dark:text-yellow-400'
+        return 'text-orange-600 dark:text-orange-400'
     }
 
     if (isLoading) {
         return (
-            <Card>
-                <CardContent className="pt-6">
+            <Card className="border-border/50 bg-card/50">
+                <CardContent className="pt-12">
                     <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-4">
-                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                            <p className="text-sm text-muted-foreground">Generating content...</p>
+                            <div className="relative w-12 h-12">
+                                <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-primary/0 rounded-full animate-pulse" />
+                                <div className="absolute inset-1 bg-gradient-to-r from-primary/50 to-primary/10 rounded-full animate-spin" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-foreground">Generating your content...</p>
+                                <p className="text-xs text-muted-foreground mt-1">This may take a few moments</p>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
@@ -62,63 +87,74 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
     if (!content) return null
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
             {/* Metrics Summary */}
             {metrics && (
-                <Card className="bg-muted/50">
+                <Card className="border-border/50 bg-gradient-to-br from-card via-card to-muted/30">
                     <CardContent className="pt-6">
+                        <h3 className="text-sm font-semibold mb-4 text-foreground">Quality Metrics</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Quality Scores */}
                             {metrics.seo_score !== undefined && (
-                                <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">SEO Score</p>
-                                    <p className="text-lg font-semibold">{formatScore(metrics.seo_score)}</p>
+                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
+                                    <p className="text-xs text-muted-foreground mb-1">SEO Score</p>
+                                    <p className={`text-2xl font-bold ${getScoreColor(metrics.seo_score)}`}>
+                                        {formatScore(metrics.seo_score)}%
+                                    </p>
                                 </div>
                             )}
                             {metrics.uniqueness_score !== undefined && (
-                                <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Uniqueness</p>
-                                    <p className="text-lg font-semibold">{formatScore(metrics.uniqueness_score)}</p>
+                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
+                                    <p className="text-xs text-muted-foreground mb-1">Uniqueness</p>
+                                    <p className={`text-2xl font-bold ${getScoreColor(metrics.uniqueness_score)}`}>
+                                        {formatScore(metrics.uniqueness_score)}%
+                                    </p>
                                 </div>
                             )}
                             {metrics.engagement_score !== undefined && (
-                                <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Engagement</p>
-                                    <p className="text-lg font-semibold">{formatScore(metrics.engagement_score)}</p>
+                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
+                                    <p className="text-xs text-muted-foreground mb-1">Engagement</p>
+                                    <p className={`text-2xl font-bold ${getScoreColor(metrics.engagement_score)}`}>
+                                        {formatScore(metrics.engagement_score)}%
+                                    </p>
                                 </div>
                             )}
                             {metrics.cost_usd !== undefined && (
-                                <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Cost</p>
-                                    <p className="text-lg font-semibold">${metrics.cost_usd.toFixed(5)}</p>
+                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
+                                    <p className="text-xs text-muted-foreground mb-1">Generation Cost</p>
+                                    <p className="text-2xl font-bold text-primary">
+                                        ${metrics.cost_usd.toFixed(4)}
+                                    </p>
                                 </div>
                             )}
                         </div>
                         
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/50">
                             {/* Cache & Performance */}
                             {metrics.cached !== undefined && (
                                 <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Cache</p>
-                                    <p className="text-sm font-medium">{metrics.cached ? '✓ Hit' : '✗ Miss'}</p>
+                                    <p className="text-xs text-muted-foreground">Cache Status</p>
+                                    <p className="text-sm font-semibold flex items-center gap-1">
+                                        {metrics.cached ? '✅ Hit' : '⚡ Fresh'}
+                                    </p>
                                 </div>
                             )}
                             {metrics.generation_time_ms !== undefined && (
                                 <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Time</p>
-                                    <p className="text-sm font-medium">{metrics.generation_time_ms}ms</p>
+                                    <p className="text-xs text-muted-foreground">Generation Time</p>
+                                    <p className="text-sm font-semibold">{metrics.generation_time_ms}ms</p>
                                 </div>
                             )}
                             {metrics.cache_hit_rate !== undefined && (
                                 <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Hit Rate</p>
-                                    <p className="text-sm font-medium">{(metrics.cache_hit_rate * 100).toFixed(1)}%</p>
+                                    <p className="text-xs text-muted-foreground">Cache Hit Rate</p>
+                                    <p className="text-sm font-semibold">{(metrics.cache_hit_rate * 100).toFixed(1)}%</p>
                                 </div>
                             )}
                             {metrics.total_cost_usd !== undefined && (
                                 <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Total Cost</p>
-                                    <p className="text-sm font-medium">${metrics.total_cost_usd.toFixed(5)}</p>
+                                    <p className="text-xs text-muted-foreground">Session Cost</p>
+                                    <p className="text-sm font-semibold">${metrics.total_cost_usd.toFixed(4)}</p>
                                 </div>
                             )}
                         </div>
@@ -128,27 +164,56 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
 
             {/* Rate Limiting Info */}
             {metrics && metrics.rate_limit_remaining !== undefined && (
-                <div className="text-xs text-muted-foreground text-center">
-                    Requests remaining: {metrics.rate_limit_remaining} | Resets in {metrics.rate_limit_reset_after}s
+                <div className="text-xs text-muted-foreground text-center p-2 bg-muted/30 rounded-lg border border-border/50">
+                    📊 {metrics.rate_limit_remaining} requests remaining • Resets in {metrics.rate_limit_reset_after}s
                 </div>
             )}
 
             {/* Content Card */}
-            <Card>
-                <CardHeader>
+            <Card className="border-border/50 overflow-hidden">
+                <CardHeader className="border-b border-border/50 bg-muted/20">
                     <div className="flex items-center justify-between">
                         <div>
-                            <CardTitle>Generated Content</CardTitle>
-                            <CardDescription>Your AI-generated blog post</CardDescription>
+                            <CardTitle className="text-xl">Generated Content</CardTitle>
+                            <CardDescription>Ready to use and customize</CardDescription>
                         </div>
-                        <Button onClick={handleCopy} variant="outline" size="sm">
-                            {copied ? 'Copied!' : 'Copy'}
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={handleDownload}
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                title="Download as text file"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">Download</span>
+                            </Button>
+                            <Button
+                                onClick={handleCopy}
+                                variant={copied ? "default" : "outline"}
+                                size="sm"
+                                className="gap-2"
+                            >
+                                {copied ? (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Copied!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Copy</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <div className="whitespace-pre-wrap">{content}</div>
+                <CardContent className="pt-6">
+                    <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg">
+                        <div className="text-foreground leading-relaxed whitespace-pre-wrap font-normal">
+                            {content}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
