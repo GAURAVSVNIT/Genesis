@@ -207,50 +207,23 @@ async def migrate_guest_to_user(
         
         # Migrate each conversation
         for guest_conv in guest_conversations:
-            # Create new conversation with real user_id
-            new_conversation = ConversationCache(
-                id=str(uuid.uuid4()),
-                user_id=authenticated_user_id,  # Update to real user
-                session_id=str(uuid.uuid4()),
-                title=guest_conv.title,
-                conversation_hash=guest_conv.conversation_hash,  # Preserve original hash
-                message_count=guest_conv.message_count,
-                platform="authenticated",  # Mark as authenticated
-                tone=guest_conv.tone,
-                created_at=datetime.utcnow(),
-                migration_version="1.0"
-            )
-            db.add(new_conversation)
-            db.flush()  # Get ID
+            # Update the existing guest conversation in-place
+            # instead of creating a new one
+            guest_conv.user_id = authenticated_user_id  # Update to real user
+            guest_conv.platform = "authenticated"  # Mark as authenticated (not archived!)
             
-            # Get all messages from guest conversation
+            # Get all messages from this conversation and ensure they have message_hash
             guest_messages = db.query(MessageCache).filter_by(
                 conversation_id=guest_conv.id
             ).all()
             
-            # Copy each message to new conversation
+            # Update messages to ensure message_hash is set
             for guest_msg in guest_messages:
-                # Generate message hash if not present
-                message_hash = guest_msg.message_hash or hashlib.md5(guest_msg.content.encode()).hexdigest()
-                
-                new_message = MessageCache(
-                    id=str(uuid.uuid4()),
-                    conversation_id=new_conversation.id,  # Link to new conversation
-                    role=guest_msg.role,
-                    content=guest_msg.content,
-                    message_hash=message_hash,  # Ensure message_hash is set
-                    sequence=guest_msg.sequence,
-                    tokens=guest_msg.tokens,
-                    created_at=guest_msg.created_at  # Preserve original timestamp
-                )
-                db.add(new_message)
+                if not guest_msg.message_hash:
+                    guest_msg.message_hash = hashlib.md5(guest_msg.content.encode()).hexdigest()
                 messages_migrated += 1
             
             conversations_migrated += 1
-            
-            # Mark old conversation as archived/migrated
-            guest_conv.platform = "archived"  # Mark as archived
-            guest_conv.created_at = datetime.utcnow()  # Update timestamp
         
         db.commit()
         
