@@ -40,17 +40,8 @@ export function useGeneration(isAuthenticated: boolean) {
             console.log('[DEBUG] Starting blog generation with request:', request)
             const promptMessage = `Generate a ${request.tone} ${request.length} blog post about: ${request.prompt}`
 
-            // Save prompt
-            if (!isAuthenticated && guestId) {
-                // Guest: Save to Redis
-                await saveGuestMessage(guestId, {
-                    role: 'user',
-                    content: promptMessage,
-                    timestamp: new Date().toISOString()
-                })
-            }
-            // Note: For authenticated users, chat persistence is handled by the backend API
-            // through the database models (conversation_cache, message_cache, etc.)
+            // Note: The backend /v1/content/generate already saves all conversations and messages
+            // to both conversation_cache and message_cache tables. No need for separate frontend calls.
 
             console.log('[DEBUG] Calling generateBlog API...')
             const response = await generateBlog(request)
@@ -58,16 +49,7 @@ export function useGeneration(isAuthenticated: boolean) {
             setGeneratedContent(response.content)
             setMetrics(response)
 
-            // Save response
-            if (!isAuthenticated && guestId) {
-                // Guest: Save to Redis
-                await saveGuestMessage(guestId, {
-                    role: 'assistant',
-                    content: response.content,
-                    timestamp: new Date().toISOString()
-                })
-            }
-            // Note: For authenticated users, response persistence is handled by the backend API
+            // Note: Backend handles all persistence (conversation_cache + message_cache)
 
             // Increment usage for anonymous users
             if (!isAuthenticated) {
