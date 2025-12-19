@@ -235,6 +235,14 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         Send
                     </Button>
                 </div>
+
+                {/* Error Display */}
+                {error && (
+                    <div className="mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded text-destructive text-sm">
+                        ⚠️ {error}
+                    </div>
+                )}
+
                 <div className="text-xs text-muted-foreground mt-2 text-right">
                     Press Enter to send, Shift+Enter for new line
                 </div>

@@ -37,6 +37,7 @@ export function useGeneration(isAuthenticated: boolean) {
         setError(null)
 
         try {
+            console.log('[DEBUG] Starting blog generation with request:', request)
             const promptMessage = `Generate a ${request.tone} ${request.length} blog post about: ${request.prompt}`
 
             // Save prompt
@@ -51,7 +52,9 @@ export function useGeneration(isAuthenticated: boolean) {
             // Note: For authenticated users, chat persistence is handled by the backend API
             // through the database models (conversation_cache, message_cache, etc.)
 
+            console.log('[DEBUG] Calling generateBlog API...')
             const response = await generateBlog(request)
+            console.log('[DEBUG] Received response:', response)
             setGeneratedContent(response.content)
             setMetrics(response)
 
