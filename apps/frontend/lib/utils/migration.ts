@@ -25,6 +25,14 @@ function getGuestIdForMigration(): string | null {
 }
 
 /**
+ * Public helper to get current guest ID from localStorage
+ * @returns Guest ID or null if not found
+ */
+export function getGuestId(): string | null {
+    return localStorage.getItem('guestId')
+}
+
+/**
  * Perform complete guest-to-user migration
  * Migrates guest chat from backend PostgreSQL to authenticated user account
  */

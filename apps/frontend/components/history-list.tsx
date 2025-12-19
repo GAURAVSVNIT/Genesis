@@ -37,31 +37,17 @@ export function HistoryList({ isAuthenticated }: { isAuthenticated: boolean }) {
             setLoading(true)
             try {
                 if (isAuthenticated) {
-                    // Fetch authenticated user conversations
-                    const supabase = createClient()
-                    const { data: { user } } = await supabase.auth.getUser()
-
-                    if (user) {
-                        const { data, error } = await supabase
-                            .from('chats')
-                            .select('*')
-                            .eq('user_id', user.id)
-                            .order('created_at', { ascending: false })
-                            .limit(100)
-
-                        if (error) {
-                            console.error('Error fetching history:', error)
-                        } else if (data) {
-                            // Group messages by conversation (simple grouping by user messages)
-                            const grouped = groupMessagesByConversation(data)
-                            setConversations(grouped)
-                        }
-                    }
+                    // TODO: Fetch authenticated user conversations from backend API
+                    // The backend has conversation_cache and message_cache tables
+                    // that store all conversations. Once a proper API endpoint is created,
+                    // it should be called here instead of direct Supabase access.
+                    console.log('Authenticated user history fetch - API endpoint needed')
+                    setConversations([])
                 } else {
                     // Fetch guest conversations from backend
                     const guestId = getGuestId()
                     if (guestId) {
-                        const response = await fetch(`/v1/guest/chat/${guestId}`)
+                        const response = await fetch(`http://localhost:8000/v1/guest/chat/${guestId}`)
                         if (response.ok) {
                             const messages = await response.json()
                             const grouped = groupMessagesByConversation(messages)
@@ -140,11 +126,10 @@ export function HistoryList({ isAuthenticated }: { isAuthenticated: boolean }) {
                     {activeConversations.map((conv) => (
                         <Card
                             key={conv.id}
-                            className={`p-3 cursor-pointer transition-colors ${
-                                selectedConversation === conv.id
+                            className={`p-3 cursor-pointer transition-colors ${selectedConversation === conv.id
                                     ? 'bg-primary text-primary-foreground'
                                     : 'hover:bg-muted'
-                            }`}
+                                }`}
                             onClick={() => setSelectedConversation(conv.id)}
                         >
                             <h3 className="font-semibold text-sm truncate">{conv.title}</h3>
@@ -184,11 +169,10 @@ export function HistoryList({ isAuthenticated }: { isAuthenticated: boolean }) {
                                         {selected.messages.map((msg) => (
                                             <div
                                                 key={msg.id}
-                                                className={`p-3 rounded-lg ${
-                                                    msg.role === 'assistant'
+                                                className={`p-3 rounded-lg ${msg.role === 'assistant'
                                                         ? 'bg-muted/50 border-l-4 border-l-primary'
                                                         : 'bg-background border-l-4 border-l-muted-foreground'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex justify-between items-start mb-2">
                                                     <span className="font-semibold text-sm uppercase text-muted-foreground">

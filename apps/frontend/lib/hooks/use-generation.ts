@@ -47,19 +47,9 @@ export function useGeneration(isAuthenticated: boolean) {
                     content: promptMessage,
                     timestamp: new Date().toISOString()
                 })
-            } else if (isAuthenticated) {
-                // Authenticated: Save to Supabase
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    await supabase.from('chats').insert({
-                        user_id: user.id,
-                        role: 'user',
-                        content: promptMessage,
-                        created_at: new Date().toISOString()
-                    })
-                }
             }
+            // Note: For authenticated users, chat persistence is handled by the backend API
+            // through the database models (conversation_cache, message_cache, etc.)
 
             const response = await generateBlog(request)
             setGeneratedContent(response.content)
@@ -70,30 +60,22 @@ export function useGeneration(isAuthenticated: boolean) {
                 // Guest: Save to Redis
                 await saveGuestMessage(guestId, {
                     role: 'assistant',
-                    content: response.blog,
+                    content: response.content,
                     timestamp: new Date().toISOString()
                 })
-            } else if (isAuthenticated) {
-                // Authenticated: Save to Supabase
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    await supabase.from('chats').insert({
-                        user_id: user.id,
-                        role: 'assistant',
-                        content: response.blog,
-                        created_at: new Date().toISOString()
-                    })
-                }
             }
+            // Note: For authenticated users, response persistence is handled by the backend API
 
             // Increment usage for anonymous users
             if (!isAuthenticated) {
                 incrementUsage()
                 setRemainingGenerationsState(getRemainingGenerations())
             }
+            
+            return response.content
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate content')
+            return null
         } finally {
             setIsLoading(false)
         }
