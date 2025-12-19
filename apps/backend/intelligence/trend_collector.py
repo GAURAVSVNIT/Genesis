@@ -27,6 +27,24 @@ class TrendCollector:
         keyword_str = "-".join(sorted(keywords))
         source_str = "-".join(sorted(sources))
         return f"trends:data:{keyword_str}:{source_str}"
+    
+    def get_available_sources(self) -> List[str]:
+        """Get list of sources that have API keys configured."""
+        available = []
+        
+        if self.serper_api_key:
+            available.append("google_trends")
+        
+        if self.twitter_bearer_token:
+            available.append("twitter")
+        
+        if self.reddit_client_id and self.reddit_client_secret:
+            available.append("reddit")
+        
+        # LinkedIn doesn't require API key (placeholder)
+        # available.append("linkedin")
+        
+        return available
 
     async def collect_all_trends(
         self,
@@ -35,16 +53,32 @@ class TrendCollector:
     ) -> Dict:
         """
         Collect trends from multiple sources concurrently with Redis caching.
+        Only uses sources that have API keys configured.
         
         Args:
             keywords: List of keywords to analyze
-            sources: List of sources to use (defaults to all available)
+            sources: List of sources to use (auto-detects available if None)
             
         Returns:
             Aggregated trend data from all sources
         """
+        # Auto-detect available sources if not specified
         if not sources:
-            sources = ["google_trends", "twitter", "reddit", "linkedin"]
+            sources = self.get_available_sources()
+            if not sources:
+                print("⚠️ No API keys configured. Using mock data for testing.")
+                return self._get_mock_trends(keywords)
+        else:
+            # Filter sources to only those available
+            available_sources = self.get_available_sources()
+            sources = [s for s in sources if s in available_sources]
+            
+            if not sources:
+                print(f"⚠️ None of the requested sources have API keys configured.")
+                print(f"   Available sources: {available_sources if available_sources else 'None'}")
+                return self._get_mock_trends(keywords)
+        
+        print(f"📡 Using sources: {sources}")
         
         # Check cache first
         if self.use_cache:
@@ -110,10 +144,50 @@ class TrendCollector:
         }
         
         # Cache the results
-        if self.use_cache:
+        if self.use_cache and aggregated["trending_topics"]:
             await self._cache_trends(keywords, sources, aggregated)
 
         return aggregated
+    
+    def _get_mock_trends(self, keywords: List[str]) -> Dict:
+        """Generate mock trend data when no APIs are available."""
+        mock_topics = [
+            {
+                "title": f"Latest developments in {keywords[0] if keywords else 'technology'}",
+                "snippet": "Mock trend data for testing without API keys",
+                "source": "mock",
+                "type": "placeholder",
+                "relevance_score": 50
+            },
+            {
+                "title": f"Understanding {keywords[0] if keywords else 'innovation'} trends",
+                "snippet": "This is placeholder data. Configure API keys for real trends.",
+                "source": "mock",
+                "type": "placeholder",
+                "relevance_score": 45
+            },
+            {
+                "title": f"How {keywords[0] if keywords else 'AI'} is changing the industry",
+                "snippet": "Add SERPER_API_KEY to .env for Google Trends data",
+                "source": "mock",
+                "type": "placeholder",
+                "relevance_score": 40
+            }
+        ]
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "keywords": keywords,
+            "sources": {"mock": {"note": "No API keys configured. Add API keys to .env for real data."}},
+            "trending_topics": mock_topics,
+            "summary": {
+                "total_topics": len(mock_topics),
+                "sources_count": 0,
+                "fetched_at": datetime.now().isoformat(),
+                "is_mock_data": True
+            },
+            "from_cache": False
+        }
     
     async def _get_cached_trends(self, keywords: List[str], sources: List[str]) -> Optional[Dict]:
         """Get cached trend data from Redis."""
