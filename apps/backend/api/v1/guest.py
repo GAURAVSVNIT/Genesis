@@ -230,11 +230,15 @@ async def migrate_guest_to_user(
             
             # Copy each message to new conversation
             for guest_msg in guest_messages:
+                # Generate message hash if not present
+                message_hash = guest_msg.message_hash or hashlib.md5(guest_msg.content.encode()).hexdigest()
+                
                 new_message = MessageCache(
                     id=str(uuid.uuid4()),
                     conversation_id=new_conversation.id,  # Link to new conversation
                     role=guest_msg.role,
                     content=guest_msg.content,
+                    message_hash=message_hash,  # Ensure message_hash is set
                     sequence=guest_msg.sequence,
                     tokens=guest_msg.tokens,
                     created_at=guest_msg.created_at  # Preserve original timestamp
