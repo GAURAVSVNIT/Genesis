@@ -10,33 +10,36 @@ import os
 # Load environment variables from .env
 load_dotenv()
 
-# Database Configuration - Support both Supabase (production) and SQLite (local dev)
+# Database Configuration - Supabase PostgreSQL (production)
 DATABASE_URL = os.getenv("DATABASE_URL")
-USE_SQLITE = os.getenv("USE_SQLITE", "true").lower() == "true"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")  # Default to 'postgres' if not set
 
-# Use SQLite for local development without internet
-if USE_SQLITE or not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./genesis.db"
-    print("⚠️  Using SQLite for local development: ./genesis.db")
-    # SQLite engine for development
-    engine = create_engine(
-        DATABASE_URL,
-        echo=os.getenv("DEBUG", "false").lower() == "true",
-        connect_args={"check_same_thread": False},
-    )
-else:
-    # Supabase PostgreSQL engine for production
-    print("✅ Using Supabase PostgreSQL for production")
-    engine = create_engine(
-        DATABASE_URL,
-        echo=os.getenv("DEBUG", "false").lower() == "true",
-        poolclass=NullPool,  # Important for serverless/railway deployments
-        connect_args={
-            "options": "-c timezone=utc",  # Set UTC timezone
-            "keepalives": 1,
-            "keepalives_idle": 30,
-        }
-    )
+if not DATABASE_URL and SUPABASE_URL:
+    # Transform https://[REF].supabase.co to postgresql://postgres:[PASS]@db.[REF].supabase.co:5432/postgres
+    try:
+        project_ref = SUPABASE_URL.split("://")[1].split(".")[0]
+        DATABASE_URL = f"postgresql://postgres:{DB_PASSWORD}@db.{project_ref}.supabase.co:5432/postgres"
+        print(f"🔗 Derived DATABASE_URL from SUPABASE_URL for project: {project_ref}")
+    except Exception as e:
+        print(f"❌ Failed to derive DATABASE_URL: {e}")
+
+if not DATABASE_URL:
+    print("❌ ERROR: DATABASE_URL (or SUPABASE_URL + DB_PASSWORD) is not set!")
+    print("Please set these in your .env file.")
+    raise ValueError("DATABASE_URL not found")
+
+print("✅ Using production database configuration")
+engine = create_engine(
+    DATABASE_URL,
+    echo=os.getenv("DEBUG", "false").lower() == "true",
+    poolclass=NullPool,  # Important for serverless/railway deployments
+    connect_args={
+        "options": "-c timezone=utc",  # Set UTC timezone
+        "keepalives": 1,
+        "keepalives_idle": 30,
+    }
+)
 
 # Create session factory
 SessionLocal = sessionmaker(

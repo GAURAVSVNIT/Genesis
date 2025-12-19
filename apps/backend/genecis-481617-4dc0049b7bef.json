@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "genecis-481617",
+  "private_key_id": "4dc0049b7bef964d70164c0cb27b06be5d888850",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDf5WWVQFczaqPA\nV4jHiXGtXFw9NevvdnB+cs609A1F4OuGl++pDJm1cNB9bkSTOemKTAtXP53N3Ple\nwBN5cEiLcUNcOq8lerKHceno00Al7CtzyYdglSupfp0oGfSEsN/AItENFQR12fGm\nMXNhlqeTmjfFGl3JMuezZn2UVRmjKlbf+Wgc9Q2dxN6ioEHzlcHP8AXJuBFzAYt0\nWWW79JgVwsPsQRTDpESOcKVNkz31mBUl9yhe2qihjMLUsufWqaouEdKvlOUunciA\nXJdGPuC/OdrwMGvzWVEpsJ1TgB6suyPG4NC4DiUyhfQW3LKJTt0VaJq6vq3NgWWd\nplqSDY37AgMBAAECggEAOrRbm7QYiRczY0mwR90+TJ20Y6pBN/K+kTEKCMEav9E2\n//3TbWgr3zp6uACTA2VCWiwRJym7dxAy5EiJcqRhqQokBskuRi3zJHdWROEq5yaS\nyBO1prnGDnVvwGV5ytbTe/3FAWCa4EmqRhCeN564Roe/irMclxX9UXkUgTGE/NYt\n7egtovY+8BJDhU5nj9JZf3oyG2UnnwEviofJST85ShxkotZROSUgMujr4GA7huWG\ncFeLGGbm9GJOJnjkE+rqeD9nQZ3GH0El7DAIc7lLjbMMP4AZ1O/kE9kZi4PCD5bh\nBVHz7Z7l6cXp2l5CA5PORn7npAFesT5iSu3bAP9K6QKBgQD6uo/SxX255dCJSOBS\nZAQyUHkt6ONzg5AMfJCG0OEQA3H3qAII4BBITINKhhZmEWf9Ce82g/F6vxdmr0eH\nJVhPxtrObV+7A/ko9FGU34QGN5Rh2K0egQnq7dXhmA3qvmWT+2ULIzCQS/xL/eHs\n10NQbMRpnp1e1nZH2jaSHrWR2QKBgQDkmmt5ijXjlX4Iy813E8R2WF50N3VlYzYT\nFpLvbL2yMrk4y5DMYwKuEJVJxrQyxlbDsR+He++h2LJFHBXRUxDLVcsnq8CP1m96\nuLryBGCCCSc+MRwky/aMIXt4NnRY19TohFpy3dxneVSWiTwFFN+vN7gdq1g0ZnEy\naEu8/wXl8wKBgQDDYao99wP4XyvYL2APFD1o7+jea8MC+xy/fjoptJANqIGhGd0s\nCV7m2CjfZAoEU8ATITC17K+6lTqpHCHDIMjmsfFEN1sIIxqAXZNNTbhWF+2bKfwN\n70RJPDkVaSY/LUt+u8KLoUpwx6W9mgP6Sez8uSV9oMrFYp4dc+BekWuwUQKBgEew\nRVPwC8Y68zM+9kgJYurZ+4Tmf2I0IpkJ0zpSF4rybTNqYxY1VnnPqYFhVtE1cbAc\ns46BRzyx//W8QPtL2VBqrzLZoaF51avekoGi7cDZrfzK2dCQRdjcByRDr2jNBm+E\nUfkDqkKoweYTU0ckrKD+EDb9rMOB/K2aF2ZFc0wRAoGAOWkkRUycrsfm3K2oW4UR\nOD+6+xfsPRi7hjnHEF/zVE546uYZZwENeebMBj5ZL5Ps4v42cik5ZUp9IDO4fzbb\n0q/bp/5w9fZQWFMDfs/kKVbuWANK7vYmCXb5BglTe6/eBTlkOnvfM3ykp/FIok6C\nR0doSn7KET3PXLyNPIAR9+k=\n-----END PRIVATE KEY-----\n",
+  "client_email": "genecis@genecis-481617.iam.gserviceaccount.com",
+  "client_id": "115652606134647123614",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/genecis%40genecis-481617.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

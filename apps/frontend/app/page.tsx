@@ -1,4 +1,4 @@
-import { PromptInterface } from '@/components/prompt-interface'
+import { ChatInterface } from '@/components/chat-interface'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
@@ -8,7 +8,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen py-12 px-4">
-      <PromptInterface isAuthenticated={isAuthenticated} />
+      <ChatInterface isAuthenticated={isAuthenticated} />
     </main>
   )
 }
