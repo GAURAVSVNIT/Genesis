@@ -22,3 +22,6 @@ tweepy>=4.14.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 
+# Readability analysis for SEO
+textstat>=0.7.3
+
