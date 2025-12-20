@@ -1,6 +1,6 @@
 """
 Example endpoints for content embedding and similarity search.
-Supports both Gemini API and local sentence-transformers models.
+Supports both Vertex AI multimodalembedding@001 and local sentence-transformers models.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -21,14 +21,14 @@ class CreateEmbeddingRequest(BaseModel):
     """Request to create embedding for content."""
     content_id: str
     text: str
-    use_local: bool = False  # Use local embeddings instead of Gemini
+    use_local: bool = False  # Use local embeddings instead of Vertex AI
 
 
 class SimilaritySearchRequest(BaseModel):
     """Request to search for similar content."""
     query: str
     limit: int = 5
-    use_local: bool = False  # Use local embeddings instead of Gemini
+    use_local: bool = False  # Use local embeddings instead of Vertex AI
 
 
 class SimilarContentResponse(BaseModel):
@@ -49,7 +49,7 @@ async def create_embedding(
     """
     Create and store embedding for generated content.
     
-    Can use either Gemini API or local sentence-transformers models.
+    Can use either Vertex AI multimodalembedding@001 or local sentence-transformers models.
     
     Args:
         request: CreateEmbeddingRequest with content_id, text, and use_local flag
@@ -73,7 +73,7 @@ async def create_embedding(
             model_name = "all-MiniLM-L6-v2"
         else:
             embedding_service = get_embedding_service()
-            model_name = "models/embedding-001"
+            model_name = "multimodalembedding@001"
         
         # Generate and store embedding
         embedding = embedding_service.store_embedding(
@@ -101,7 +101,7 @@ async def search_similar_content(
     """
     Search for content similar to the query using vector similarity.
     
-    Can use either Gemini API or local sentence-transformers models.
+    Can use either Vertex AI multimodalembedding@001 or local sentence-transformers models.
     
     Args:
         request: SimilaritySearchRequest with query, limit, and use_local flag
@@ -144,7 +144,7 @@ async def health_check(use_local: bool = Query(False, description="Check local e
     Check if embedding service is available.
     
     Args:
-        use_local: If True, check local service; if False, check Gemini API
+        use_local: If True, check local service; if False, check Vertex AI
     """
     try:
         if use_local:
@@ -152,7 +152,7 @@ async def health_check(use_local: bool = Query(False, description="Check local e
             model = "all-MiniLM-L6-v2"
         else:
             embedding_service = get_embedding_service()
-            model = "models/embedding-001"
+            model = "multimodalembedding@001"
         
         # Try to generate a test embedding
         test_embedding = embedding_service.generate_embedding("test")
@@ -160,7 +160,7 @@ async def health_check(use_local: bool = Query(False, description="Check local e
             "status": "ok",
             "embedding_dimensions": len(test_embedding),
             "model": model,
-            "service": "local" if use_local else "gemini",
+            "service": "local" if use_local else "vertex_ai",
         }
     except Exception as e:
         raise HTTPException(

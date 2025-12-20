@@ -1,25 +1,58 @@
 """
-Embedding service for generating and managing vector embeddings using Vertex AI multimodalembedding@001.
+Vertex AI Multimodal Embedding service using multimodalembedding@001 model.
+Uses Google Cloud Vertex AI for generating embeddings.
 """
 
 import os
-from typing import Optional
-from core.vertex_ai_embeddings import get_vertex_ai_embedding_service
+from typing import Optional, List
+from google.cloud import aiplatform
+from google.cloud.aiplatform import gapic
 from sqlalchemy.orm import Session
 from database.models.content import ContentEmbedding, GeneratedContent
 from database.database import SessionLocal
+from core.config import settings
 
 
-class EmbeddingService:
-    """Service for generating and storing embeddings using Vertex AI multimodalembedding@001."""
+class VertexAIEmbeddingService:
+    """Service for generating embeddings using Vertex AI multimodalembedding@001 model."""
 
-    def __init__(self):
-        """Initialize the embedding service with Vertex AI."""
-        self.embedding_service = get_vertex_ai_embedding_service()
+    def __init__(
+        self,
+        project_id: Optional[str] = None,
+        location: str = "us-central1",
+        model: str = "multimodalembedding@001"
+    ):
+        """
+        Initialize the Vertex AI embedding service.
+        
+        Args:
+            project_id: GCP project ID (from environment if not provided)
+            location: GCP region for Vertex AI
+            model: Embedding model name (default: multimodalembedding@001)
+        """
+        self.project_id = project_id or settings.GCP_PROJECT_ID or os.getenv("GCP_PROJECT_ID")
+        self.location = location
+        self.model_name = model
+        
+        if not self.project_id:
+            raise ValueError("GCP_PROJECT_ID not found. Set it in .env file or pass as parameter.")
+        
+        # Initialize Vertex AI
+        aiplatform.init(project=self.project_id, location=self.location)
+        
+        # Get the prediction client
+        self.client_options = {"api_endpoint": f"{self.location}-aiplatform.googleapis.com"}
+        self.client = gapic.PredictionServiceClient(client_options=self.client_options)
+        
+        # Model endpoint
+        self.endpoint = f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/{self.model_name}"
+        
+        # Embedding dimension for multimodalembedding@001 is 1408
+        self.embedding_dim = 1408
 
     def generate_embedding(self, text: str) -> list[float]:
         """
-        Generate embedding for a given text using Vertex AI multimodalembedding@001.
+        Generate embedding for a given text using Vertex AI.
         
         Args:
             text: Text to embed
@@ -30,9 +63,27 @@ class EmbeddingService:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
         
-        # Vertex AI embeddings returns a single embedding for a single text
-        embedding = self.embedding_service.embed_text(text)
-        return embedding
+        # Prepare the request
+        from google.protobuf import struct_pb2
+        
+        instance = struct_pb2.Struct()
+        instance.fields["text"].string_value = text
+        
+        instances = [instance]
+        
+        # Make prediction request
+        response = self.client.predict(
+            endpoint=self.endpoint,
+            instances=instances
+        )
+        
+        # Extract embedding from response
+        # The multimodalembedding@001 returns embeddings in the predictions field
+        if response.predictions:
+            embedding = list(response.predictions[0].get("textEmbedding", []))
+            return embedding
+        else:
+            raise ValueError("No embedding returned from Vertex AI")
 
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
@@ -47,16 +98,59 @@ class EmbeddingService:
         if not texts:
             raise ValueError("Texts list cannot be empty")
         
-        # Vertex AI embeddings handles batch processing
-        embeddings = self.embedding_service.embed_multiple(texts)
+        # Prepare the request
+        from google.protobuf import struct_pb2
+        
+        instances = []
+        for text in texts:
+            instance = struct_pb2.Struct()
+            instance.fields["text"].string_value = text
+            instances.append(instance)
+        
+        # Make prediction request
+        response = self.client.predict(
+            endpoint=self.endpoint,
+            instances=instances
+        )
+        
+        # Extract embeddings from response
+        embeddings = []
+        for prediction in response.predictions:
+            embedding = list(prediction.get("textEmbedding", []))
+            embeddings.append(embedding)
+        
         return embeddings
+
+    def embed_text(self, text: str) -> list[float]:
+        """
+        Alias for generate_embedding for compatibility with local embeddings interface.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            List of floats representing the embedding
+        """
+        return self.generate_embedding(text)
+
+    def embed_multiple(self, texts: list[str]) -> list[list[float]]:
+        """
+        Alias for generate_embeddings_batch for compatibility with local embeddings interface.
+        
+        Args:
+            texts: List of texts to embed
+            
+        Returns:
+            List of embeddings
+        """
+        return self.generate_embeddings_batch(texts)
 
     def store_embedding(
         self,
         content_id: str,
         text: str,
         db: Optional[Session] = None,
-        model: str = "multimodalembedding@001",
+        model: Optional[str] = None,
     ) -> ContentEmbedding:
         """
         Generate embedding and store it in the database.
@@ -65,7 +159,7 @@ class EmbeddingService:
             content_id: UUID of the GeneratedContent
             text: Text to embed
             db: Database session (creates new if not provided)
-            model: Embedding model name
+            model: Embedding model name (uses default if not provided)
             
         Returns:
             ContentEmbedding object
@@ -84,7 +178,7 @@ class EmbeddingService:
             content_embedding = ContentEmbedding(
                 content_id=content_id,
                 embedding=embedding,
-                embedding_model=model,
+                embedding_model=model or self.model_name,
             )
             
             db.add(content_embedding)
@@ -124,7 +218,6 @@ class EmbeddingService:
             query_embedding = self.generate_embedding(query_text)
             
             # Use pgvector cosine similarity (<-> operator)
-            # This finds the most similar embeddings
             from sqlalchemy import func, text as sql_text
             
             similar_embeddings = db.query(
@@ -188,12 +281,18 @@ class EmbeddingService:
 
 
 # Singleton instance
-_embedding_service: Optional[EmbeddingService] = None
+_vertex_ai_embedding_service: Optional[VertexAIEmbeddingService] = None
 
 
-def get_embedding_service() -> EmbeddingService:
-    """Get or create the embedding service instance."""
-    global _embedding_service
-    if _embedding_service is None:
-        _embedding_service = EmbeddingService()
-    return _embedding_service
+def get_vertex_ai_embedding_service(
+    project_id: Optional[str] = None,
+    location: str = "us-central1"
+) -> VertexAIEmbeddingService:
+    """Get or create the Vertex AI embedding service instance."""
+    global _vertex_ai_embedding_service
+    if _vertex_ai_embedding_service is None:
+        _vertex_ai_embedding_service = VertexAIEmbeddingService(
+            project_id=project_id,
+            location=location
+        )
+    return _vertex_ai_embedding_service
