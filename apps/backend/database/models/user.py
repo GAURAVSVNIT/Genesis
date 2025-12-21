@@ -38,11 +38,7 @@ class User(SoftDeleteModel):
     generated_content = relationship("GeneratedContent", back_populates="user", cascade="all, delete-orphan")
     user_settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
-    file_attachments = relationship("FileAttachment", back_populates="user", cascade="all, delete-orphan")
-    usage_statistics = relationship("UsageStatistics", back_populates="user", cascade="all, delete-orphan")
     usage_metrics = relationship("UsageMetrics", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    search_history = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")
-    activity_logs = relationship("ActivityLog", back_populates="user", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('idx_users_email', 'email'),

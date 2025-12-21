@@ -64,8 +64,6 @@ class Conversation(SoftDeleteModel):
     user = relationship("User", back_populates="conversations")
     folder = relationship("ConversationFolder", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
-    # Note: generated_content relationship removed - it can be NULL for API requests
-    shares = relationship("ConversationShare", back_populates="conversation", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('idx_conversations_user', 'user_id'),
