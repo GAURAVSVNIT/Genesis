@@ -31,7 +31,6 @@ from database.models.cache import (
 from database.models.content import (
     GeneratedContent,
     UsageMetrics,
-    CacheContentMapping,
     ContentEmbedding,
 )
 from database.models.conversation import Conversation, Message
@@ -380,8 +379,10 @@ async def generate_content(
         elapsed_ms = 0
         
         # ========== STEP 1: RATE LIMITING ==========
-        identifier = "guest"
-        user_id = None  # For guest requests
+        # Use guestId if provided (guest user), otherwise guest identifier
+        guest_id = request.guestId if hasattr(request, 'guestId') and request.guestId else None
+        identifier = guest_id if guest_id else "guest"
+        user_id = guest_id  # For guest requests, use the guestId
         is_premium = False
         
         client_ip = http_request.client.host if http_request.client else "unknown"
@@ -547,57 +548,62 @@ async def generate_content(
             db.flush()  # Get IDs
         
         # ========== CACHE CONVERSATION & MESSAGES (FOR ALL REQUESTS) ==========
-        conversation_cache = ConversationCache(
-            id=conversation_id,
-            user_id=user_id,
-            session_id=str(uuid.uuid4()),
-            title=request.prompt[:50],  # First 50 chars as title
-            conversation_hash=conversation_hash,
-            message_count=1,
-            total_tokens=0,
-            platform="api",
-            tone=request.safety_level,
-            language="en",
-            migration_version="1.0"
-        )
-        try:
-            db.add(conversation_cache)
-            db.flush()  # Get ID without committing
-        except Exception as flush_error:
-            from sqlalchemy.exc import SQLAlchemyError
-            print(f"❌ Error flushing conversation_cache: {flush_error}")
-            if isinstance(flush_error, SQLAlchemyError):
-                print(f"SQL Error: {flush_error.orig}")
-            import traceback
-            traceback.print_exc()
-            db.rollback()
-            raise
+        # For guest users: skip conversation_cache creation (handled by guest endpoint)
+        # For authenticated users: create conversation_cache
+        if user_id is not None:  # Only for authenticated users, not guests
+            conversation_cache = ConversationCache(
+                id=conversation_id,
+                user_id=user_id,
+                session_id=str(uuid.uuid4()),
+                title=request.prompt[:50],  # First 50 chars as title
+                conversation_hash=conversation_hash,
+                message_count=1,
+                total_tokens=0,
+                platform="api",
+                tone=request.safety_level,
+                language="en",
+                migration_version="1.0"
+            )
+            try:
+                db.add(conversation_cache)
+                db.flush()  # Get ID without committing
+            except Exception as flush_error:
+                from sqlalchemy.exc import SQLAlchemyError
+                print(f"❌ Error flushing conversation_cache: {flush_error}")
+                if isinstance(flush_error, SQLAlchemyError):
+                    print(f"SQL Error: {flush_error.orig}")
+                import traceback
+                traceback.print_exc()
+                db.rollback()
+                raise
         
-        # Add user message to message_cache
-        user_message = MessageCache(
-            id=user_message_id,
-            conversation_id=conversation_id,
-            role="user",
-            content=request.prompt,
-            message_hash=hashlib.md5(request.prompt.encode()).hexdigest(),
-            sequence=len(history),
-            tokens=len(request.prompt.split()),  # Rough estimate
-            created_at=datetime.utcnow()
-        )
-        db.add(user_message)
-        
-        # Add assistant message to message_cache
-        assistant_message = MessageCache(
-            id=assistant_message_id,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=content if isinstance(content, str) else str(content),
-            message_hash=hashlib.md5((content if isinstance(content, str) else str(content)).encode()).hexdigest(),
-            sequence=len(history) + 1,
-            tokens=len(str(content).split()),  # Rough estimate
-            created_at=datetime.utcnow()
-        )
-        db.add(assistant_message)
+        # Add messages to message_cache (ONLY FOR AUTHENTICATED USERS)
+        if user_id is not None:  # Only for authenticated users, not guests
+            # Add user message to message_cache
+            user_message = MessageCache(
+                id=user_message_id,
+                conversation_id=conversation_id,
+                role="user",
+                content=request.prompt,
+                message_hash=hashlib.md5(request.prompt.encode()).hexdigest(),
+                sequence=len(history),
+                tokens=len(request.prompt.split()),  # Rough estimate
+                created_at=datetime.utcnow()
+            )
+            db.add(user_message)
+            
+            # Add assistant message to message_cache
+            assistant_message = MessageCache(
+                id=assistant_message_id,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=content if isinstance(content, str) else str(content),
+                message_hash=hashlib.md5((content if isinstance(content, str) else str(content)).encode()).hexdigest(),
+                sequence=len(history) + 1,
+                tokens=len(str(content).split()),  # Rough estimate
+                created_at=datetime.utcnow()
+            )
+            db.add(assistant_message)
         
         # ========== STEP 7: STORE IN PROMPT CACHE (DEDUPLICATION) ==========
         # ========== STEP 7: STORE IN PROMPT CACHE (DEDUPLICATION) ==========
@@ -678,22 +684,7 @@ async def generate_content(
             )
             db.add(content_embedding)
             
-            # ========== STEP 9: LINK IN CACHE_CONTENT_MAPPING ==========
-            mapping = CacheContentMapping(
-                id=str(uuid.uuid4()),
-                cache_type="prompt",
-                cache_id=prompt_cache_entry.id,
-                content_id=generated_content_id,
-                user_id=user_id,
-                cache_backend="postgresql",
-                content_backend="postgresql",
-                is_synced=True,
-                last_synced_at=datetime.utcnow(),
-                created_at=datetime.utcnow()
-            )
-            db.add(mapping)
-            
-            # ========== STEP 10: UPDATE USAGE & CACHE METRICS (ONLY FOR AUTHENTICATED USERS) ==========
+            # ========== STEP 9: UPDATE USAGE & CACHE METRICS (ONLY FOR AUTHENTICATED USERS) ==========
             user_metrics = get_or_create_usage_metrics(db, user_id, tier="free" if not is_premium else "premium")
             if user_metrics:
                 user_metrics.total_requests += 1

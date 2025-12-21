@@ -5,15 +5,13 @@ Import all models to make them available
 from database.models.base import BaseModel, SoftDeleteModel
 from database.models.user import User, UserSettings, APIKey
 from database.models.conversation import Conversation, ConversationFolder, Message
-from database.models.content import GeneratedContent, ContentEmbedding, FileAttachment, UsageMetrics, CacheContentMapping
-from database.models.analytics import UsageStatistics, SearchHistory, ActivityLog, ConversationShare
+from database.models.content import GeneratedContent, ContentEmbedding, UsageMetrics
 from database.models.cache import (
     ConversationCache,
     MessageCache,
     PromptCache,
     CacheEmbedding,
     CacheMetrics,
-    CacheMigration,
 )
 
 __all__ = [
@@ -31,19 +29,11 @@ __all__ = [
     # Content
     "GeneratedContent",
     "ContentEmbedding",
-    "FileAttachment",
     "UsageMetrics",
-    "CacheContentMapping",
-    # Analytics
-    "UsageStatistics",
-    "SearchHistory",
-    "ActivityLog",
-    "ConversationShare",
     # Cache
     "ConversationCache",
     "MessageCache",
     "PromptCache",
     "CacheEmbedding",
     "CacheMetrics",
-    "CacheMigration",
 ]

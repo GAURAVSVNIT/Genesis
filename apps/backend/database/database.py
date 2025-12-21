@@ -25,11 +25,11 @@ if not DATABASE_URL and SUPABASE_URL:
         print(f"❌ Failed to derive DATABASE_URL: {e}")
 
 if not DATABASE_URL:
-    print("❌ ERROR: DATABASE_URL (or SUPABASE_URL + DB_PASSWORD) is not set!")
+    print("ERROR: DATABASE_URL (or SUPABASE_URL + DB_PASSWORD) is not set!")
     print("Please set these in your .env file.")
     raise ValueError("DATABASE_URL not found")
 
-print("✅ Using production database configuration")
+print("Using production database configuration")
 engine = create_engine(
     DATABASE_URL,
     echo=os.getenv("DEBUG", "false").lower() == "true",

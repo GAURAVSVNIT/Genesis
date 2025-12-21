@@ -169,9 +169,9 @@ class CacheEmbedding(Base):
     message_id = Column(String(36), nullable=True)
     
     # Embedding data
-    embedding = Column(String(5000), nullable=False)  # JSON array as string, or use pgvector
-    embedding_model = Column(String(100), default="all-MiniLM-L6-v2")
-    embedding_dim = Column(Integer, default=384)
+    embedding = Column(Text, nullable=False)  # JSON array as string - using Text for large vectors
+    embedding_model = Column(String(100), default="multimodalembedding@001")
+    embedding_dim = Column(Integer, default=1408)  # Vertex AI embedding dimension
     
     # Metadata
     text_chunk = Column(Text, nullable=False)
