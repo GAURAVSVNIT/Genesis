@@ -6,6 +6,7 @@ export interface BlogRequest {
     prompt: string
     tone: string
     length: string
+    guestId?: string | null
 }
 
 export interface BlogResponse {

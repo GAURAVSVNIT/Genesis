@@ -49,4 +49,3 @@ async def health_check_redis():
         return {"status": "ok", "redis": "connected" if pong else "disconnected"}
     except Exception as e:
         return {"status": "error", "redis": str(e)}
-

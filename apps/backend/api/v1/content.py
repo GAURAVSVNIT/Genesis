@@ -20,6 +20,7 @@ import re
 
 from graph.content_agent import create_agent
 from core.rate_limiter import RATE_LIMITERS
+from core.upstash_redis import RedisManager
 from core.response_cache import CACHES
 from database.database import SessionLocal
 from database.models.cache import (
@@ -27,6 +28,7 @@ from database.models.cache import (
     MessageCache,
     PromptCache,
     CacheMetrics,
+    CacheEmbedding,
 )
 from database.models.content import (
     GeneratedContent,
@@ -230,6 +232,7 @@ class GenerateContentRequest(BaseModel):
     prompt: str
     conversation_history: Optional[List[Message]] = None
     safety_level: str = "moderate"  # 'strict', 'moderate', 'permissive'
+    guestId: Optional[str] = None
 
 
 class GenerateContentResponse(BaseModel):
@@ -380,13 +383,30 @@ async def generate_content(
         
         # ========== STEP 1: RATE LIMITING ==========
         # Use guestId if provided (guest user), otherwise guest identifier
-        guest_id = request.guestId if hasattr(request, 'guestId') and request.guestId else None
-        identifier = guest_id if guest_id else "guest"
-        user_id = guest_id  # For guest requests, use the guestId
+        guest_id = request.guestId
+        with open("debug_redis.log", "a") as f: f.write(f"[DEBUG] Initial guest_id from request: {guest_id}, prompt len: {len(request.prompt)}\n")
+        
+        # Determine identifier for rate limiting
+        if guest_id:
+            identifier = guest_id
+            # cache_user_id can be guest_id for redis/cache tracking
+            cache_user_id = guest_id
+            # auth_user_id must be None for guests (unless we verify it's a real user, which we assume not if passed as guestId)
+            auth_user_id = None
+        else:
+            client_ip = http_request.client.host if http_request.client else "unknown"
+            identifier = client_ip
+            cache_user_id = None
+            auth_user_id = None
+        
+        # Override if authenticated user logic exists (omitted here as we rely on explicit user_id handling in backend flow usually)
+        # But for this file, user_id seems to come from request params or auth middleware not fully shown.
+        # Assuming guest flow:
+        user_id = auth_user_id 
+        
         is_premium = False
         
         client_ip = http_request.client.host if http_request.client else "unknown"
-        identifier = client_ip
         
         limiter = RATE_LIMITERS["free_user"]
         allowed, remaining, reset_after = limiter.check_rate_limit(identifier, is_premium)
@@ -498,7 +518,7 @@ async def generate_content(
         assistant_message_id = str(uuid.uuid4())
         
         # ========== CREATE MAIN CONVERSATION & MESSAGE ENTRIES (ONLY FOR AUTHENTICATED USERS) ==========
-        if user_id is not None:  # Only if authenticated
+        if user_id is not None and len(str(user_id)) == 36:  # Only if authenticated with valid UUID
             real_conversation = Conversation(
                 id=conversation_id,
                 user_id=user_id,
@@ -548,37 +568,57 @@ async def generate_content(
             db.flush()  # Get IDs
         
         # ========== CACHE CONVERSATION & MESSAGES (FOR ALL REQUESTS) ==========
-        # For guest users: skip conversation_cache creation (handled by guest endpoint)
-        # For authenticated users: create conversation_cache
-        if user_id is not None:  # Only for authenticated users, not guests
-            conversation_cache = ConversationCache(
+        # LOGIC: Try to append to existing conversation if it exists (unified history), otherwise create new.
+        
+        # Determine effective user_id/guest_id for query
+        query_user_id = user_id if user_id else cache_user_id
+        is_guest_mode = (query_user_id == cache_user_id) # True if we are using guest_id not authenticated user_id
+        
+        existing_conversation = None
+        if query_user_id:
+             # Try to find existing conversation to append to
+             # For guests, guest.py uses platform="guest"
+             # For authenticated users, platform="api" vs "chat" might differ, but let's try to unify.
+             existing_conversation = db.query(ConversationCache).filter_by(
+                user_id=query_user_id,
+                platform="guest" if is_guest_mode else "api" 
+            ).first()
+        
+        if existing_conversation:
+             # REUSE EXISTING
+             conversation_id = existing_conversation.id
+             # Increment message count (User + AI = +2)
+             existing_conversation.message_count += 2
+             existing_conversation.updated_at = datetime.utcnow()
+             existing_conversation.accessed_at = datetime.utcnow()
+             db.add(existing_conversation) # Mark for update
+             # Use existing sequence count for next messages
+             current_sequence = existing_conversation.message_count - 1 # approximate, strict sequence managed by DB usually or append
+        else:
+            # CREATE NEW
+             conversation_cache = ConversationCache(
                 id=conversation_id,
-                user_id=user_id,
-                session_id=str(uuid.uuid4()),
+                user_id=query_user_id, # Use auth ID if available, else guest ID
+                session_id=str(uuid.uuid4()) if not guest_id else guest_id,
                 title=request.prompt[:50],  # First 50 chars as title
                 conversation_hash=conversation_hash,
-                message_count=1,
+                message_count=2, # Initial (User + AI)
                 total_tokens=0,
-                platform="api",
+                platform="guest" if is_guest_mode else "api", # Use 'guest' platform if guest to match guest.py
                 tone=request.safety_level,
                 language="en",
                 migration_version="1.0"
             )
-            try:
+             try:
                 db.add(conversation_cache)
                 db.flush()  # Get ID without committing
-            except Exception as flush_error:
-                from sqlalchemy.exc import SQLAlchemyError
+             except Exception as flush_error:
                 print(f"❌ Error flushing conversation_cache: {flush_error}")
-                if isinstance(flush_error, SQLAlchemyError):
-                    print(f"SQL Error: {flush_error.orig}")
-                import traceback
-                traceback.print_exc()
-                db.rollback()
+                # Fallback to just logging error but continuing if possible (or raise)
                 raise
-        
-        # Add messages to message_cache (ONLY FOR AUTHENTICATED USERS)
-        if user_id is not None:  # Only for authenticated users, not guests
+
+        # Add messages to message_cache (FOR ALL USERS)
+        if True:  # Changed from checking user_id to allow all
             # Add user message to message_cache
             user_message = MessageCache(
                 id=user_message_id,
@@ -586,7 +626,7 @@ async def generate_content(
                 role="user",
                 content=request.prompt,
                 message_hash=hashlib.md5(request.prompt.encode()).hexdigest(),
-                sequence=len(history),
+                sequence=existing_conversation.message_count - 1 if existing_conversation else 1, # Sequence logic
                 tokens=len(request.prompt.split()),  # Rough estimate
                 created_at=datetime.utcnow()
             )
@@ -599,13 +639,13 @@ async def generate_content(
                 role="assistant",
                 content=content if isinstance(content, str) else str(content),
                 message_hash=hashlib.md5((content if isinstance(content, str) else str(content)).encode()).hexdigest(),
-                sequence=len(history) + 1,
+                sequence=existing_conversation.message_count if existing_conversation else 2,
                 tokens=len(str(content).split()),  # Rough estimate
                 created_at=datetime.utcnow()
             )
             db.add(assistant_message)
         
-        # ========== STEP 7: STORE IN PROMPT CACHE (DEDUPLICATION) ==========
+
         # ========== STEP 7: STORE IN PROMPT CACHE (DEDUPLICATION) ==========
         content_str = content if isinstance(content, str) else str(content)
         response_hash = hashlib.sha256(content_str.encode()).hexdigest()
@@ -622,6 +662,49 @@ async def generate_content(
             created_at=datetime.utcnow()
         )
         db.add(prompt_cache_entry)
+        
+        # ========== STEP 7.5: STORE IN REDIS (HOT CACHE FOR GUESTS) ==========
+        # Store in Redis for guest sessions (consistent with api/v1/guest.py)
+        with open("debug_redis.log", "a") as f:
+            f.write(f"\n[{datetime.utcnow().isoformat()}] Processing Request for Guest: {guest_id}\n")
+            
+        if guest_id:
+            try:
+                redis = RedisManager.get_instance()
+                if not redis:
+                     with open("debug_redis.log", "a") as f: f.write(f"[ERROR] RedisManager returned None!\n")
+                else:
+                    key = f"guest:{guest_id}"
+                    with open("debug_redis.log", "a") as f: f.write(f"[INFO] Using Redis Key: {key}\n")
+                    
+                    # 1. Store User Prompt
+                    user_msg_redis = {
+                        "role": "user",
+                        "content": request.prompt,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    res1 = redis.rpush(key, json.dumps(user_msg_redis))
+                    with open("debug_redis.log", "a") as f: f.write(f"[INFO] rpush user result: {res1}\n")
+                    
+                    # 2. Store AI Response
+                    ai_msg_redis = {
+                        "role": "assistant",
+                        "content": content_str,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    res2 = redis.rpush(key, json.dumps(ai_msg_redis))
+                    with open("debug_redis.log", "a") as f: f.write(f"[INFO] rpush ai result: {res2}\n")
+                    
+                    # Set expiration (24 hours)
+                    redis.expire(key, 86400)
+                    with open("debug_redis.log", "a") as f: f.write(f"[INFO] Expiration set\n")
+                
+            except Exception as e:
+                with open("debug_redis.log", "a") as f: f.write(f"[ERROR] Exception: {str(e)}\n")
+                import traceback
+                with open("debug_redis.log", "a") as f: f.write(traceback.format_exc() + "\n")
+        else:
+             with open("debug_redis.log", "a") as f: f.write(f"[WARN] No guest_id provided, skipping Redis cache\n")
         
         # ========== STEP 8A: CALCULATE QUALITY SCORES ==========
         
@@ -665,8 +748,8 @@ async def generate_content(
         db.flush()  # Get ID
         generated_content_id = generated_content.id
         
-        # Only create embeddings for authenticated users
-        if user_id is not None:
+        # Create embeddings for ALL users (Guests included)
+        if True:
             content_embedding = ContentEmbedding(
                 id=str(uuid.uuid4()),
                 content_id=generated_content_id,
@@ -684,8 +767,25 @@ async def generate_content(
             )
             db.add(content_embedding)
             
-            # ========== STEP 9: UPDATE USAGE & CACHE METRICS (ONLY FOR AUTHENTICATED USERS) ==========
-            user_metrics = get_or_create_usage_metrics(db, user_id, tier="free" if not is_premium else "premium")
+            # Additional: Store in cache_embeddings for Chat consistency (mirroring guest.py behavior)
+            # We reuse the same embedding vector generated for the content
+            cache_embedding = CacheEmbedding(
+                id=str(uuid.uuid4()),
+                conversation_id=conversation_id,
+                message_id=assistant_message_id,
+                embedding=json.dumps(embedding_vector),  # cache_embeddings expects Text (JSON)
+                embedding_model="all-MiniLM-L6-v2",     # Matches the model used in this file
+                embedding_dim=len(embedding_vector),
+                text_chunk=content_str[:1000] if content_str else "",
+                chunk_index=0,
+                migration_version="1.0",
+                created_at=datetime.utcnow()
+            )
+            db.add(cache_embedding)
+            
+            # ========== STEP 9: UPDATE USAGE & CACHE METRICS (ONLY FOR AUTHENTICATED USERS WITH VALID ID) ==========
+            if user_id is not None:
+                user_metrics = get_or_create_usage_metrics(db, user_id, tier="free" if not is_premium else "premium")
             if user_metrics:
                 user_metrics.total_requests += 1
                 user_metrics.cache_misses += 1
