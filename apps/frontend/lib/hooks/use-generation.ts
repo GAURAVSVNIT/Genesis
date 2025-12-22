@@ -44,7 +44,12 @@ export function useGeneration(isAuthenticated: boolean) {
             // to both conversation_cache and message_cache tables. No need for separate frontend calls.
 
             console.log('[DEBUG] Calling generateBlog API...')
-            const response = await generateBlog(request)
+            // Inject guestId if not authenticated
+            const requestWithGuestId = {
+                ...request,
+                guestId: !isAuthenticated ? guestId : undefined
+            }
+            const response = await generateBlog(requestWithGuestId)
             console.log('[DEBUG] Received response:', response)
             setGeneratedContent(response.content)
             setMetrics(response)
