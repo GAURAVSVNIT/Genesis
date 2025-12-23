@@ -8,7 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useGeneration } from '@/lib/hooks/use-generation'
 import { cn } from '@/lib/utils'
-import { User, Bot, Edit2, RefreshCw } from 'lucide-react'
+import { User, Bot, Edit2, RefreshCw, Save, X } from 'lucide-react'
+import ClientSideCustomEditor from './client-side-custom-editor'
 import ReactMarkdown from 'react-markdown'
 import {
     Select,
@@ -35,6 +36,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
+    const [editingContent, setEditingContent] = useState('')
     const [tone, setTone] = useState('informative')
     const [length, setLength] = useState('medium')
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -100,6 +102,24 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     // Let's assume for a moment I will modify useGeneration or use api directly.
     // Actually, I'll modify useGeneration to return the data.
 
+    const handleEdit = (msg: Message) => {
+        setEditingId(msg.id)
+        setEditingContent(msg.content)
+    }
+
+    const handleSaveEdit = (id: string) => {
+        setMessages(prev => prev.map(m =>
+            m.id === id ? { ...m, content: editingContent } : m
+        ))
+        setEditingId(null)
+        setEditingContent('')
+    }
+
+    const handleCancelEdit = () => {
+        setEditingId(null)
+        setEditingContent('')
+    }
+
     return (
         <div className="flex flex-col h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
             {/* Premium Header */}
@@ -129,11 +149,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-700">
-                                    <SelectItem value="informative">📚 Informative</SelectItem>
-                                    <SelectItem value="casual">😊 Casual</SelectItem>
-                                    <SelectItem value="professional">💼 Professional</SelectItem>
-                                    <SelectItem value="creative">✨ Creative</SelectItem>
-                                    <SelectItem value="humorous">😄 Humorous</SelectItem>
+                                    <SelectItem value="informative"> Informative</SelectItem>
+                                    <SelectItem value="casual"> Casual</SelectItem>
+                                    <SelectItem value="professional">Professional</SelectItem>
+                                    <SelectItem value="creative">Creative</SelectItem>
+                                    <SelectItem value="humorous">Humorous</SelectItem>
                                 </SelectContent>
                             </Select>
                             <div className="w-px bg-slate-700/50"></div>
@@ -189,77 +209,121 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             </div>
                         )}
 
-                    {messages.map((msg) => (
-                        <div
-                            key={msg.id}
-                            className={cn(
-                                "flex gap-4 group animate-in fade-in-50 slide-in-from-bottom-3 duration-300",
-                                msg.role === 'user' ? "flex-row-reverse" : "flex-row"
-                            )}
-                        >
-                            {msg.role === 'assistant' && (
+                        {messages.map((msg) => (
+                            <div
+                                key={msg.id}
+                                className={cn(
+                                    "flex gap-4 group animate-in fade-in-50 slide-in-from-bottom-3 duration-300",
+                                    msg.role === 'user' ? "flex-row-reverse" : "flex-row"
+                                )}
+                            >
+                                {msg.role === 'assistant' && (
+                                    <Avatar className="w-9 h-9 mt-1 flex-shrink-0 border border-slate-700/50">
+                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                            <Bot className="w-5 h-5 text-white" />
+                                        </div>
+                                    </Avatar>
+                                )}
+
+                                <div className={cn(
+                                    "flex flex-col gap-2 max-w-2xl",
+                                    msg.role === 'user' && "items-end"
+                                )}>
+                                    <div className={cn(
+                                        "px-4 py-3 rounded-2xl transition-all duration-200",
+                                        msg.role === 'user'
+                                            ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
+                                            : "bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/50 hover:border-slate-700 hover:bg-slate-800/80"
+                                    )}>
+                                        <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words">
+                                            {editingId === msg.id ? (
+                                                <div className="space-y-4">
+                                                    <div className="bg-white rounded-lg overflow-hidden">
+                                                        <ClientSideCustomEditor
+                                                            initialData={editingContent}
+                                                            onChange={setEditingContent}
+                                                        />
+                                                    </div>
+                                                    <div className="flex gap-2 justify-end">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={handleCancelEdit}
+                                                            className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleSaveEdit(msg.id)}
+                                                            className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white"
+                                                        >
+                                                            <Save className="w-4 h-4 mr-2" />
+                                                            Save
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {msg.content.includes('<') ? (
+                                                        <div dangerouslySetInnerHTML={{ __html: msg.content }} />
+                                                    ) : (
+                                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-2 text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {msg.role === 'assistant' && (
+                                            <span className="flex items-center gap-1">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                AI Generated
+                                            </span>
+                                        )}
+                                        <span>{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                                        {msg.role === 'assistant' && editingId !== msg.id && (
+                                            <button
+                                                onClick={() => handleEdit(msg)}
+                                                className="ml-2 p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-blue-400"
+                                                title="Edit with CKEditor"
+                                            >
+                                                <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {msg.role === 'user' && (
+                                    <Avatar className="w-9 h-9 mt-1 flex-shrink-0 bg-slate-700 border border-slate-600">
+                                        <div className="w-full h-full rounded-full bg-slate-700 flex items-center justify-center">
+                                            <User className="w-5 h-5 text-slate-300" />
+                                        </div>
+                                    </Avatar>
+                                )}
+                            </div>
+                        ))}
+
+                        {isLoading && (
+                            <div className="flex gap-4 group">
                                 <Avatar className="w-9 h-9 mt-1 flex-shrink-0 border border-slate-700/50">
-                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                    <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center animate-pulse">
                                         <Bot className="w-5 h-5 text-white" />
                                     </div>
                                 </Avatar>
-                            )}
-
-                            <div className={cn(
-                                "flex flex-col gap-2 max-w-2xl",
-                                msg.role === 'user' && "items-end"
-                            )}>
-                                <div className={cn(
-                                    "px-4 py-3 rounded-2xl transition-all duration-200",
-                                    msg.role === 'user'
-                                        ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30" 
-                                        : "bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/50 hover:border-slate-700 hover:bg-slate-800/80"
-                                )}>
-                                    <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words">
-                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700/50">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                        <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                        <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce"></div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2 px-2 text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {msg.role === 'assistant' && (
-                                        <span className="flex items-center gap-1">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                            AI Generated
-                                        </span>
-                                    )}
-                                    <span>{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span className="text-xs text-slate-400 ml-1">Generating response...</span>
                                 </div>
                             </div>
-
-                            {msg.role === 'user' && (
-                                <Avatar className="w-9 h-9 mt-1 flex-shrink-0 bg-slate-700 border border-slate-600">
-                                    <div className="w-full h-full rounded-full bg-slate-700 flex items-center justify-center">
-                                        <User className="w-5 h-5 text-slate-300" />
-                                    </div>
-                                </Avatar>
-                            )}
-                        </div>
-                    ))}
-
-                    {isLoading && (
-                        <div className="flex gap-4 group">
-                            <Avatar className="w-9 h-9 mt-1 flex-shrink-0 border border-slate-700/50">
-                                <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center animate-pulse">
-                                    <Bot className="w-5 h-5 text-white" />
-                                </div>
-                            </Avatar>
-                            <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700/50">
-                                <div className="flex gap-1.5">
-                                    <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce"></div>
-                                </div>
-                                <span className="text-xs text-slate-400 ml-1">Generating response...</span>
-                            </div>
-                        </div>
-                    )}
-                    <div ref={scrollRef} />
-                </div>
-            </ScrollArea>
+                        )}
+                        <div ref={scrollRef} />
+                    </div>
+                </ScrollArea>
             </div>
 
             {/* Premium Input Footer */}
