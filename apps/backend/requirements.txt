@@ -39,3 +39,6 @@ lxml>=5.0.0
 # Embeddings - Local (offline)
 sentence-transformers>=3.0.0
 
+# Readability analysis for SEO
+textstat>=0.7.3
+
