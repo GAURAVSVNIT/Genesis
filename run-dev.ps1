@@ -8,7 +8,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot
 Start-Sleep -Seconds 2
 
 # Start backend in background
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\apps\backend'; python -m uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\apps\backend'; python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
 Write-Host "`nServers starting in separate windows..." -ForegroundColor Green
 Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan

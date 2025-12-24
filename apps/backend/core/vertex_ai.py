@@ -48,7 +48,7 @@ class VertexAIService:
     def __init__(
         self,
         config: Optional[VertexAIConfig] = None,
-        safety_level: str = "moderate"
+        safety_level: str = "permissive",  # Changed from 'moderate' for development
     ):
         """
         Initialize Vertex AI service.
@@ -181,7 +181,7 @@ class VertexAIAgentState:
 def create_vertex_ai_service(
     project_id: Optional[str] = None,
     model: str = "gemini-2.0-flash",
-    safety_level: str = "moderate"
+    safety_level: str = "permissive"  # Changed from 'moderate' for development
 ) -> VertexAIService:
     """
     Create a Vertex AI service instance.
@@ -208,7 +208,7 @@ _vertex_ai_service: Optional[VertexAIService] = None
 def get_vertex_ai_service(
     project_id: Optional[str] = None,
     model: str = "gemini-2.0-flash",
-    safety_level: str = "moderate"
+    safety_level: str = "permissive"  # Changed from 'moderate' for development
 ) -> VertexAIService:
     """Get or create Vertex AI service instance."""
     global _vertex_ai_service

@@ -104,3 +104,63 @@ class Message(BaseModel):
         Index('idx_messages_user', 'user_id'),
         Index('idx_messages_role', 'role'),
     )
+
+
+class BlogCheckpoint(BaseModel):
+    """Blog content checkpoints for version control"""
+    __tablename__ = "blog_checkpoints"
+    
+    user_id = Column(String(255), nullable=False, index=True)
+    conversation_id = Column(String(255), nullable=False, index=True)
+    
+    # Blog Content
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    description = Column(Text)  # Optional description of this version
+    
+    # Context Snapshot
+    context_snapshot = Column(JSON, nullable=True)  # Full conversation context at checkpoint time
+    chat_messages_snapshot = Column(JSON, nullable=True)  # Chat messages at checkpoint time
+    
+    # Metadata
+    version_number = Column(Integer, nullable=False)  # Sequential version number
+    tone = Column(String(50))
+    length = Column(String(50))
+    is_active = Column(Boolean, default=False)  # Current active version
+    
+    # Note: Relationships disabled for string keys to avoid FK constraints
+    # In production, use proper UUID keys with relationships
+    
+    __table_args__ = (
+        Index('idx_checkpoints_user', 'user_id'),
+        Index('idx_checkpoints_conversation', 'conversation_id'),
+        Index('idx_checkpoints_active', 'is_active'),
+        Index('idx_checkpoints_created', 'created_at'),
+    )
+
+
+class ConversationContext(BaseModel):
+    """Stores full conversation context for production-grade persistence"""
+    __tablename__ = "conversation_contexts"
+    
+    user_id = Column(String(255), nullable=False, index=True)
+    conversation_id = Column(String(255), nullable=False, index=True)
+    
+    # Full Context
+    messages_context = Column(JSON, nullable=False)  # All messages with metadata
+    chat_context = Column(Text)  # Formatted chat context for AI
+    blog_context = Column(Text)  # Current blog content for AI
+    full_context = Column(Text)  # Complete enriched context for generation
+    
+    # Metadata
+    last_updated_at = Column(DateTime, nullable=False)
+    message_count = Column(Integer, default=0)
+    
+    # Note: Relationships disabled for string keys to avoid FK constraints
+    # In production, use proper UUID keys with relationships
+    
+    __table_args__ = (
+        Index('idx_context_user', 'user_id'),
+        Index('idx_context_conversation', 'conversation_id'),
+        Index('idx_context_updated', 'last_updated_at'),
+    )

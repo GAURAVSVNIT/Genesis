@@ -40,11 +40,18 @@ from database.models.conversation import Conversation, Message
 
 def get_db():
     """Get database session."""
-    db = SessionLocal()
     try:
+        db = SessionLocal()
         yield db
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        yield None
     finally:
-        db.close()
+        try:
+            if db:
+                db.close()
+        except:
+            pass
 
 
 # ========== SEO OPTIMIZATION ==========
@@ -147,6 +154,13 @@ class GenerateContentRequest(BaseModel):
     conversation_history: Optional[List[Message]] = None
     safety_level: str = "moderate"  # 'strict', 'moderate', 'permissive'
     guestId: Optional[str] = None
+    tone: str = "analytical"  # 'analytical', 'opinionated', 'critical', 'investigative', 'contrarian'
+    include_critique: bool = True  # Include critical analysis
+    include_alternatives: bool = True  # Include alternative perspectives
+    include_implications: bool = True  # Include real-world implications
+    format: str = "markdown"  # 'markdown', 'html', 'plain', 'structured'
+    max_words: Optional[int] = None  # Maximum word count
+    include_sections: bool = True  # Include section breaks
 
 
 class GenerateContentResponse(BaseModel):
@@ -172,6 +186,16 @@ class GenerateContentResponse(BaseModel):
     seo_data: Optional[dict] = None
     trend_data: Optional[dict] = None
     image_url: Optional[str] = None
+    # Tone and Style Info
+    tone_applied: str = "analytical"
+    includes_critique: bool = True
+    includes_alternatives: bool = True
+    includes_implications: bool = True
+    analysis_depth: str = "comprehensive"
+    # Formatting Info
+    format_applied: str = "markdown"
+    word_count: int = 0
+    sections_count: int = 0
 
 
 class AgentConfig(BaseModel):
@@ -403,6 +427,14 @@ async def generate_content(
             )
         
         # ========== STEP 4: GENERATE NEW CONTENT (CACHE MISS) ==========
+        # Import tone enhancer
+        from intelligence.tone_enhancer import (
+            get_enhanced_system_prompt, 
+            get_content_enrichment_prompt, 
+            get_opinion_enrichment_prompt,
+            get_formatted_output_prompt
+        )
+        
         config = AgentConfig(
             model="gemini-2.0-flash",
             safety_level=request.safety_level,
@@ -418,7 +450,35 @@ async def generate_content(
                 elif msg.role == "assistant":
                     history.append(AIMessage(content=msg.content))
         
-        # Generate content
+        # Build enhanced prompt with tone and style instructions
+        enhanced_system_prompt = get_enhanced_system_prompt(
+            base_topic=request.prompt,
+            tone=request.tone,
+            add_critical_thinking=request.include_critique,
+            include_multiple_perspectives=request.include_alternatives
+        )
+        
+        # Add enrichment instructions
+        enrichment_instruction = ""
+        if request.include_critique or request.include_alternatives or request.include_implications:
+            enrichment_instruction = "\n\n" + get_content_enrichment_prompt()
+        
+        # Add formatting instructions
+        formatting_instruction = "\n\n" + get_formatted_output_prompt(
+            format_type=request.format,
+            max_words=request.max_words,
+            include_sections=request.include_sections
+        )
+        
+        # Combine with enhanced system prompt
+        enhanced_prompt = enhanced_system_prompt + enrichment_instruction + formatting_instruction
+        
+        # Add to conversation history as a system message
+        if history:
+            # If there's history, prepend the enhanced system message
+            history = [SystemMessage(content=enhanced_prompt)] + history
+        
+        # Generate content with enhanced prompt
         content = agent.invoke(
             user_message=request.prompt,
             conversation_history=history,
@@ -875,6 +935,10 @@ async def generate_content(
         # Commit all changes
         db.commit()
         
+        # Calculate word count and section count
+        word_count = len(content_str.split())
+        section_count = len(re.findall(r'^#{1,3}\s+', content_str, re.MULTILINE)) if request.format == 'markdown' else 0
+        
         return GenerateContentResponse(
             success=True,
             content=content_str,
@@ -895,7 +959,17 @@ async def generate_content(
             #  Include rich data
             seo_data=seo_result,
             trend_data=trend_analysis,
-            image_url=relevant_image_url
+            image_url=relevant_image_url,
+            #  Include tone and analysis info
+            tone_applied=request.tone,
+            includes_critique=request.include_critique,
+            includes_alternatives=request.include_alternatives,
+            includes_implications=request.include_implications,
+            analysis_depth="comprehensive" if any([request.include_critique, request.include_alternatives, request.include_implications]) else "standard",
+            #  Include formatting info
+            format_applied=request.format,
+            word_count=word_count,
+            sections_count=section_count
         )
         
     except HTTPException:

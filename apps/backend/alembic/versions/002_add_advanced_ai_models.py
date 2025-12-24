@@ -6,11 +6,22 @@ Creates tables for:
 - message_feedback (user ratings)
 - rag_sources (source attribution)
 - conversation_context (context management)
+
+Revision ID: 002
+Revises: 001
+Create Date: 2025-12-15 00:00:00.000000
+
 """
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '002'
+down_revision = '001'
+branch_labels = None
+depends_on = None
 
 
 def upgrade():
