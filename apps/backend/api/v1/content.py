@@ -47,105 +47,19 @@ def get_db():
         db.close()
 
 
-# ========== QUALITY SCORE CALCULATION ==========
+# ========== SEO OPTIMIZATION ==========
+from intelligence.seo.optimizer import optimize_content
+from intelligence.seo.config import SEOConfig
 
-def calculate_seo_score(content: str) -> float:
-    """
-    Calculate SEO score (0-1) based on content quality.
-    Simple heuristics: length, keyword density, structure.
-    """
-    if not content:
-        return 0.0
-    
-    # Length score (optimal: 500-2000 words)
-    words = len(content.split())
-    if words < 100:
-        length_score = 0.2
-    elif words < 300:
-        length_score = 0.5
-    elif words < 2000:
-        length_score = 1.0
-    elif words < 3000:
-        length_score = 0.8
-    else:
-        length_score = 0.5
-    
-    # Structure score (has paragraphs, punctuation)
-    has_structure = "\n" in content or ". " in content
-    structure_score = 0.8 if has_structure else 0.4
-    
-    # Keyword density (simple check for variety)
-    unique_words = len(set(content.lower().split()))
-    total_words = len(content.split())
-    keyword_score = min(1.0, unique_words / max(total_words / 10, 1))
-    
-    # Average the scores
-    seo_score = (length_score + structure_score + keyword_score) / 3
-    return round(min(1.0, seo_score), 2)
-
-
-def calculate_uniqueness_score(content: str, prompt: str) -> float:
-    """
-    Calculate uniqueness score (0-1) based on content vs prompt overlap.
-    Lower overlap = higher uniqueness = higher score.
-    """
-    if not content or not prompt:
-        return 0.8
-    
-    # Simple overlap detection: what % of prompt appears in content
-    prompt_lower = prompt.lower()
-    content_lower = content.lower()
-    
-    # Count how many prompt words appear in content
-    prompt_words = set(prompt_lower.split())
-    content_words = set(content_lower.split())
-    
-    overlap = len(prompt_words & content_words) / len(prompt_words) if prompt_words else 0
-    
-    # More overlap = less unique
-    uniqueness_score = 1.0 - overlap
-    return round(max(0.0, min(1.0, uniqueness_score)), 2)
-
-
-def calculate_engagement_score(content: str) -> float:
-    """
-    Calculate predicted engagement score (0-1).
-    Heuristics: emotional words, questions, calls-to-action, variety.
-    """
-    if not content:
-        return 0.0
-    
-    content_lower = content.lower()
-    
-    # Emotional words (positive indicators)
-    emotional_words = [
-        'amazing', 'awesome', 'incredible', 'powerful', 'beautiful',
-        'love', 'excellent', 'fantastic', 'revolutionary', 'unique',
-        'transform', 'discover', 'unlock', 'master', 'proven'
-    ]
-    emotional_count = sum(1 for word in emotional_words if word in content_lower)
-    emotional_score = min(1.0, emotional_count / 10)
-    
-    # Questions (engagement trigger)
-    question_score = 0.3 if "?" in content else 0.1
-    
-    # Call-to-action words
-    cta_words = ['click', 'learn', 'join', 'start', 'get', 'download', 'subscribe', 'try']
-    cta_count = sum(1 for word in cta_words if word in content_lower)
-    cta_score = min(1.0, cta_count / 5)
-    
-    # Length variety (short and long sentences)
-    sentences = content.split(".")
-    if sentences:
-        sentence_lengths = [len(s.split()) for s in sentences]
-        variety = len(set(sentence_lengths)) / max(len(sentences), 1)
-        variety_score = min(1.0, variety)
-    else:
-        variety_score = 0.5
-    
-    # Average the scores
-    engagement_score = (emotional_score + question_score + cta_score + variety_score) / 4
-    return round(min(1.0, engagement_score), 2)
+# Helper to extract keywords from prompt (simple version)
+def extract_keywords_from_prompt(prompt: str) -> List[str]:
+    """Extract potential keywords from prompt."""
+    # Remove common stop words and return top 3 longest words
+    stop_words = {'write', 'about', 'create', 'generate', 'blog', 'post', 'article', 'the', 'and', 'for', 'with'}
+    words = [w.lower() for w in re.findall(r'\b\w+\b', prompt) if w.lower() not in stop_words]
+    # Sort by length descending
+    words.sort(key=len, reverse=True)
+    return words[:3]
 
 
 # ========== EMBEDDING GENERATION ==========
@@ -247,13 +161,17 @@ class GenerateContentResponse(BaseModel):
     cached: bool = False
     cache_hit_rate: Optional[float] = None
     generation_time_ms: int = 0
-    # ✅ Quality Scores (0-1)
+    # Quality Scores (0-1)
     seo_score: Optional[float] = None
     uniqueness_score: Optional[float] = None
     engagement_score: Optional[float] = None
-    # ✅ Cost Tracking
+    # Cost Tracking
     cost_usd: Optional[float] = None
     total_cost_usd: Optional[float] = None
+    # Rich Data for Frontend
+    seo_data: Optional[dict] = None
+    trend_data: Optional[dict] = None
+    image_url: Optional[str] = None
 
 
 class AgentConfig(BaseModel):
@@ -382,6 +300,7 @@ async def generate_content(
         elapsed_ms = 0
         
         # ========== STEP 1: RATE LIMITING ==========
+        relevant_image_url = None # Initialize variable
         # Use guestId if provided (guest user), otherwise guest identifier
         guest_id = request.guestId
         with open("debug_redis.log", "a") as f: f.write(f"[DEBUG] Initial guest_id from request: {guest_id}, prompt len: {len(request.prompt)}\n")
@@ -706,21 +625,159 @@ async def generate_content(
         else:
              with open("debug_redis.log", "a") as f: f.write(f"[WARN] No guest_id provided, skipping Redis cache\n")
         
-        # ========== STEP 8A: CALCULATE QUALITY SCORES ==========
+        # ========== STEP 8A: RUN ADVANCED SEO OPTIMIZATION ==========
         
-        seo_score = calculate_seo_score(content_str)
-        uniqueness_score = calculate_uniqueness_score(content_str, request.prompt)
-        engagement_score = calculate_engagement_score(content_str)
+        # Extract keywords
+        keywords = extract_keywords_from_prompt(request.prompt)
         
-        # ========== STEP 8B: GENERATE EMBEDDING ==========
+        # ========== STEP 8B: ANALYZE TRENDS ==========
+        # Initialize trend services
+        from intelligence.trend_collector import TrendCollector
+        from intelligence.trend_analyzer import TrendAnalyzer
+        from intelligence.image_collector import ImageCollector
+        
+        trend_collector = TrendCollector(use_cache=True)
+        trend_analyzer = TrendAnalyzer()
+        image_collector = ImageCollector()
+        
+        # Fetch and analyze trends
+        # We do this concurrently or await it. Since it's async, we await.
+        # This adds context to the prompt and the SEO optimizer.
+        print(f" [Trends] Starting trend collection for keywords: {keywords}")
+        print(f" [Trends] Using configured API keys for active sources...")
+        
+        trend_data = await trend_collector.collect_all_trends(keywords)
+        
+        topic_count = len(trend_data.get("trending_topics", []))
+        print(f" [Trends] Successfully collected {topic_count} trending topics across platforms.")
+        
+        print(f" [Trends] Analyzing trends for relevance to content...")
+        trend_analysis = await trend_analyzer.analyze_for_generation(request.prompt, keywords, trend_data)
+        print(f" [Trends] Analysis complete. Generated {len(trend_analysis.get('recommendations', []))} suggestions.")
+        
+        # ========== STEP 8C: FETCH RELEVANT IMAGE ==========
+        # Fetch image based on primary keyword
+        image_search_query = keywords[0] if keywords else request.prompt[:20]
+        print(f"🖼️ [Images] Fetching image for: {image_search_query}")
+        relevant_image_url = await image_collector.get_relevant_image(image_search_query)
+        if relevant_image_url:
+            print(f" [Images] Found image: {relevant_image_url}")
+        else:
+            print(f" [Images] No image found or API not configured.")
+        
+
+        
+        # Extract trend insights to enrich the prompt
+        trend_context = ""
+        if trend_analysis.get("trending_topics"):
+            top_trends = [t.get("title", "") for t in trend_analysis["trending_topics"][:3]]
+            trend_context = f"\n\nTrending Context: The following topics are currently trending and relevant to this request: {', '.join(top_trends)}. Incorporate these angles where appropriate."
+            
+            # Enrich the prompt for the actual generation if possible
+            # Note: We've already generated the main content in Step 4. 
+            # Ideally, this trend analysis should happen BEFORE Step 4 to influence the generation.
+            # However, for now, we will use it to optimize the SEO metadata and suggestions.
+            # If we want to influence the TEXT itself, we would need to move this block up or re-generate.
+            # Given the flow, we will pass this context to the SEO Optimizer to refine the content.
+        
+        # Optimize content
+        # We explicitly await this as it uses async AI calls
+        # We pass the trend context to the optimizer config or prompt if supported
+        seo_config = SEOConfig()
+        # You might extend SEOConfig or the optimize_content prompt to accept "context"
+        
+        seo_result = await optimize_content(
+            content=content_str, # Original content
+            keywords=keywords,
+            platform="blog", # Defaulting to blog for now
+            context=trend_context, # Pass trend context for re-generation
+            config=seo_config
+        )
+        
+        # Inject trend recommendations into the SEO result
+        if trend_analysis.get("recommendations"):
+             if "suggestions" not in seo_result:
+                 seo_result["suggestions"] = []
+             seo_result["suggestions"].extend(trend_analysis["recommendations"][:3])
+             
+        # Store trend data in the result for frontend to display
+        seo_result["trend_data"] = trend_analysis
+        
+        # Extract scores and data
+        seo_score = seo_result.get("seo_score", 0.0) / 100.0 # Normalize to 0-1 for DB
+        # Uniqueness and engagement can reuse the old logic or extraction if new model supports it.
+        # For now, we'll keep uniqueness/engagement as placeholders or simple heuristics if needed,
+        # but the new model focuses on SEO. We'll derive scores from the SEO result if possible.
+        # Since the new optimizer doesn't output explicit "uniqueness" or "engagement" scores yet,
+        # we can use the "overall_score" or just default 0.8 for now to avoid errors.
+# ========== STEP 8B: GENERATE EMBEDDING ==========
         embedding_vector = generate_embedding(content_str)
         
-        # ========== STEP 8C: CALCULATE COST ==========
+        # ========== STEP 8C: CALCULATE UNIQUENESS ==========
+        # Calculate uniqueness by comparing with recent embeddings
+        # We define a helper here or call it from a utility
+        
+        import numpy as np
+        
+        def _calc_uniqueness(db_session, target_vector, limit=50):
+            try:
+                # Fetch recent embeddings
+                recent = db_session.query(ContentEmbedding.embedding)\
+                    .filter(ContentEmbedding.is_valid == True)\
+                    .order_by(ContentEmbedding.created_at.desc())\
+                    .limit(limit)\
+                    .all()
+                
+                if not recent:
+                    return 1.0
+                
+                # Convert to numpy
+                vectors = np.array([r[0] for r in recent if r[0]])
+                if len(vectors) == 0:
+                    return 1.0
+                    
+                target = np.array(target_vector)
+                
+                # Cosine Similarity
+                # sim = dot(a, b) / (norm(a) * norm(b))
+                norm_target = np.linalg.norm(target)
+                norm_vectors = np.linalg.norm(vectors, axis=1)
+                
+                # Handle zero vectors
+                if norm_target == 0:
+                    return 0.0
+                
+                # Avoid division by zero for others
+                valid_indices = norm_vectors > 0
+                if not np.any(valid_indices):
+                    return 1.0
+                    
+                vectors = vectors[valid_indices]
+                norm_vectors = norm_vectors[valid_indices]
+                
+                similarities = np.dot(vectors, target) / (norm_vectors * norm_target)
+                max_similarity = np.max(similarities)
+                
+                # Uniqueness is inverse of max similarity
+                # If similarity is 1.0 (duplicate), uniqueness is 0.0
+                return float(1.0 - max_similarity)
+                
+            except Exception as e:
+                print(f"⚠️ Uniqueness calculation error: {e}")
+                return 0.8 # Fallback
+        
+        uniqueness_score = _calc_uniqueness(db, embedding_vector)
+        # Clip to ensure valid range 0-1
+        uniqueness_score = max(0.0, min(1.0, uniqueness_score))
+        
+        engagement_score = 0.8 # Placeholder until integrated
+        
+        # ========== STEP 8D: CALCULATE COST ==========
         input_tokens = len(request.prompt.split())
         output_tokens = len(content_str.split())
         request_cost = calculate_cost("gemini-2.0-flash", input_tokens, output_tokens)
         
-        # ========== STEP 8D: STORE IN GENERATED_CONTENT (MAIN TABLE - FOR ALL USERS) ==========
+        # ========== STEP 8E: STORE IN GENERATED_CONTENT (MAIN TABLE - FOR ALL USERS) ==========
         generated_content_id = None
         # Store for both authenticated and API/guest users
         generated_content = GeneratedContent(
@@ -733,11 +790,12 @@ async def generate_content(
             content_type="text",
             platform="api",
             generated_content={
-                "text": content_str,
+                "text": seo_result.get("optimized_content", content_str), # Use optimized version if available
                 "model": "gemini-2.0-flash",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "seo_data": seo_result # Store full rich SEO data
             },
-            # ✅ NOW INCLUDE QUALITY SCORES
+            # NOW INCLUDE QUALITY SCORES
             seo_score=seo_score,
             uniqueness_score=uniqueness_score,
             engagement_score=engagement_score,
@@ -827,13 +885,17 @@ async def generate_content(
             cached=False,
             cache_hit_rate=user_metrics.cache_hit_rate if user_metrics else 0.0,
             generation_time_ms=elapsed_ms,
-            # ✅ Include quality scores
-            seo_score=seo_score,
-            uniqueness_score=uniqueness_score,
-            engagement_score=engagement_score,
-            # ✅ Include cost
+            #  Include quality scores
+            seo_score=seo_score, # Normalized 0-1
+            uniqueness_score=uniqueness_score, # Placeholder
+            engagement_score=engagement_score, # Placeholder
+            #  Include cost
             cost_usd=request_cost,
-            total_cost_usd=user_metrics.total_cost if user_metrics else 0.0
+            total_cost_usd=user_metrics.total_cost if user_metrics else 0.0,
+            #  Include rich data
+            seo_data=seo_result,
+            trend_data=trend_analysis,
+            image_url=relevant_image_url
         )
         
     except HTTPException:
@@ -842,7 +904,7 @@ async def generate_content(
         import traceback
         db.rollback()
         error_details = traceback.format_exc()
-        print(f"🔴 Content generation error: {str(e)}")
+        print(f" Content generation error: {str(e)}")
         print(f"Traceback:\n{error_details}")
         raise HTTPException(
             status_code=500,

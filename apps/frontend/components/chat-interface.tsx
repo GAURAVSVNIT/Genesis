@@ -30,6 +30,7 @@ type Message = {
     timestamp: Date
     tone?: string
     length?: string
+    image_url?: string
 }
 
 export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
@@ -90,7 +91,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             const assistantMsg: Message = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: result,
+                content: result.content,
+                image_url: result.image_url,
                 timestamp: new Date()
             }
             setMessages(prev => [...prev, assistantMsg])
@@ -235,6 +237,15 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
                                             : "bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/50 hover:border-slate-700 hover:bg-slate-800/80"
                                     )}>
+                                        {msg.image_url && (
+                                            <div className="mb-4 rounded-lg overflow-hidden border border-slate-700/50">
+                                                <img
+                                                    src={msg.image_url}
+                                                    alt="Generated content"
+                                                    className="w-full h-auto object-cover max-h-80 hover:scale-105 transition-transform duration-500"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words">
                                             {editingId === msg.id ? (
                                                 <div className="space-y-4">
