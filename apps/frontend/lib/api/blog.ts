@@ -7,6 +7,12 @@ export interface BlogRequest {
     tone: string
     length: string
     guestId?: string | null
+    include_critique?: boolean
+    include_alternatives?: boolean
+    include_implications?: boolean
+    format?: 'markdown' | 'html' | 'plain' | 'structured'
+    max_words?: number
+    include_sections?: boolean
 }
 
 export interface BlogResponse {
@@ -27,6 +33,12 @@ export interface BlogResponse {
     image_url?: string
     seo_data?: Record<string, unknown>
     trend_data?: Record<string, unknown>
+    // New tone and analysis fields
+    tone_applied?: string
+    includes_critique?: boolean
+    includes_alternatives?: boolean
+    includes_implications?: boolean
+    analysis_depth?: string
 }
 
 export async function generateBlog(request: BlogRequest): Promise<BlogResponse> {
