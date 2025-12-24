@@ -125,18 +125,49 @@ class HashtagOptimizer:
         return scored
     
     async def _get_trending(self, platform: str) -> List[str]:
-        """Get trending hashtags for platform.
-        
-        Note: This is a placeholder. In production, integrate with:
-        - Twitter API for trending topics
-        - Instagram trending hashtags
-        - Platform-specific trending APIs
-        """
+        """Get trending hashtags for platform."""
         # Check cache
         if platform in self._trending_cache:
             return self._trending_cache[platform]
-        
-        # Placeholder trending hashtags by platform
+            
+        try:
+            # Import here to avoid circular dependencies if any
+            from intelligence.trend_collector import TrendCollector
+            collector = TrendCollector()
+            
+            # Map platform names to collector sources
+            source_map = {
+                "twitter": "twitter",
+                "linkedin": "linkedin", 
+                "reddit": "reddit",
+                "google": "google_trends"
+            }
+            
+            # Default to checking all relevant sources for general/instagram
+            sources = [source_map.get(platform)] if platform in source_map else None
+            
+            # Fetch trends for "technology" or general topics if no specific keywords provided
+            # In a real scenario, we might want to pass context/keywords here
+            trends = await collector.collect_all_trends(["technology", "innovation"], sources=sources)
+            
+            collected_tags = set()
+            for topic in trends.get("trending_topics", []):
+                # Extract hashtags from titles or create them
+                title = topic.get("title", "")
+                # Simple extraction of words > 4 chars as potential hashtags
+                words = [w for w in title.split() if len(w) > 4 and w.isalnum()]
+                for w in words[:2]:
+                    collected_tags.add(f"#{w.capitalize()}")
+                    
+            if collected_tags:
+                result = list(collected_tags)[:10]
+                self._trending_cache[platform] = result
+                return result
+                
+        except Exception as e:
+            print(f"Error fetching trends: {e}")
+            
+        # Fallback to placeholders
         trending_by_platform = {
             "twitter": ["#Tech", "#Innovation", "#AI"],
             "instagram": ["#InstaDaily", "#PhotoOfTheDay", "#Love"],

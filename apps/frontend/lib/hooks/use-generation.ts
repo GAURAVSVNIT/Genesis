@@ -62,7 +62,7 @@ export function useGeneration(isAuthenticated: boolean) {
                 setRemainingGenerationsState(getRemainingGenerations())
             }
             
-            return response.content
+            return response
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate content')
             return null

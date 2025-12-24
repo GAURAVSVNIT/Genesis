@@ -24,6 +24,9 @@ export interface BlogResponse {
     rate_limit_reset_after: number
     safety_checks?: Record<string, unknown>
     tokens_used?: number
+    image_url?: string
+    seo_data?: Record<string, unknown>
+    trend_data?: Record<string, unknown>
 }
 
 export async function generateBlog(request: BlogRequest): Promise<BlogResponse> {

@@ -66,6 +66,7 @@ class SEOOptimizer:
         platform: str = "general",
         tone: Optional[str] = None,
         title: Optional[str] = None,
+        context: Optional[str] = None,
         generate_metadata: bool = False,
         max_retries: int = None
     ) -> Dict:
@@ -88,7 +89,7 @@ class SEOOptimizer:
         # Attempt optimization with retries
         for attempt in range(max_retries):
             try:
-                result = await self._optimize_with_ai(content, keywords, platform, tone)
+                result = await self._optimize_with_ai(content, keywords, platform, tone, context)
                 break
             except Exception as e:
                 if attempt == max_retries - 1:
@@ -169,10 +170,11 @@ class SEOOptimizer:
         content: str,
         keywords: List[str],
         platform: str,
-        tone: Optional[str]
+        tone: Optional[str],
+        context: Optional[str] = None
     ) -> Dict:
         """AI-powered content optimization."""
-        prompt = self._build_optimization_prompt(content, keywords, platform, tone)
+        prompt = self._build_optimization_prompt(content, keywords, platform, tone, context)
         
         response = await self.model.ainvoke(prompt)
         result = self._parse_response(response.content)
@@ -184,12 +186,14 @@ class SEOOptimizer:
         content: str,
         keywords: List[str],
         platform: str,
-        tone: Optional[str]
+        tone: Optional[str],
+        context: Optional[str] = None
     ) -> str:
         """Build comprehensive optimization prompt."""
         platform_config = PlatformRules.get_config(platform)
         
         tone_guidance = f"\\nDesired Tone: {tone}" if tone else ""
+        context_guidance = f"\\n\\nContext/Instructions:\\n{context}" if context else ""
         
         platform_guidance = f"""
 PLATFORM: {platform_config.name}
@@ -208,7 +212,7 @@ Formatting Guidelines:
 Original Content:
 {content}
 
-Keywords: {', '.join(keywords)}{tone_guidance}{platform_guidance}
+Keywords: {', '.join(keywords)}{tone_guidance}{context_guidance}{platform_guidance}
 
 Tasks:
 1. Optimize content (stay within {platform_config.optimal_length} chars)
@@ -396,6 +400,7 @@ async def optimize_content(
     content: str,
     keywords: List[str],
     platform: str = "general",
+    context: Optional[str] = None,
     config: SEOConfig = None
 ) -> Dict:
     """Quick content optimization.
@@ -410,4 +415,4 @@ async def optimize_content(
         Optimization results
     """
     optimizer = SEOOptimizer(config)
-    return await optimizer.optimize(content, keywords, platform)
+    return await optimizer.optimize(content, keywords, platform, context=context)
