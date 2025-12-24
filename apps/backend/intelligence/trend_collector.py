@@ -15,12 +15,51 @@ class TrendCollector:
     def __init__(self, use_cache: bool = True):
         """Initialize the trend collector with API credentials."""
         self.twitter_bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
+        self.twitter_api_key = os.getenv("TWITTER_API_KEY")
+        self.twitter_api_secret = os.getenv("TWITTER_API_SECRET")
+        
         self.reddit_client_id = os.getenv("REDDIT_CLIENT_ID")
         self.reddit_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
         self.reddit_user_agent = os.getenv("REDDIT_USER_AGENT", "TrendAnalyzer/1.0")
         self.serper_api_key = os.getenv("SERPER_API_KEY")
         self.use_cache = use_cache
         self.cache_ttl = 1800  # 30 minutes
+        
+    async def _get_twitter_token(self) -> Optional[str]:
+        """Generate Bearer Token from API Key/Secret if needed."""
+        if self.twitter_bearer_token:
+            return self.twitter_bearer_token
+            
+        if not self.twitter_api_key or not self.twitter_api_secret:
+            return None
+            
+        try:
+            import base64
+            credentials = f"{self.twitter_api_key}:{self.twitter_api_secret}"
+            encoded_creds = base64.b64encode(credentials.encode()).decode()
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    "https://api.twitter.com/oauth2/token",
+                    headers={
+                        "Authorization": f"Basic {encoded_creds}",
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+                    },
+                    data={"grant_type": "client_credentials"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    token = data.get("access_token")
+                    if token:
+                        self.twitter_bearer_token = token  # Cache it
+                        return token
+                        
+            print("❌ Failed to generate Twitter Bearer Token")
+        except Exception as e:
+            print(f"❌ Error generating Twitter token: {e}")
+            
+        return None
         
     def _get_cache_key(self, keywords: List[str], sources: List[str]) -> str:
         """Generate cache key for trend data."""
@@ -35,7 +74,7 @@ class TrendCollector:
         if self.serper_api_key:
             available.append("google_trends")
         
-        if self.twitter_bearer_token:
+        if self.twitter_bearer_token or (self.twitter_api_key and self.twitter_api_secret):
             available.append("twitter")
         
         if self.reddit_client_id and self.reddit_client_secret:
@@ -291,8 +330,11 @@ class TrendCollector:
         Returns:
             Twitter trends data
         """
-        if not self.twitter_bearer_token:
-            return {"error": "Twitter API token not configured", "trending_topics": []}
+        # Get token (either cached or generated)
+        token = await self._get_twitter_token()
+        
+        if not token:
+            return {"error": "Twitter API credentials not configured", "trending_topics": []}
 
         query = " OR ".join(keywords)
         
@@ -302,7 +344,7 @@ class TrendCollector:
                 response = await client.get(
                     "https://api.twitter.com/2/tweets/search/recent",
                     headers={
-                        "Authorization": f"Bearer {self.twitter_bearer_token}"
+                        "Authorization": f"Bearer {token}"
                     },
                     params={
                         "query": query,

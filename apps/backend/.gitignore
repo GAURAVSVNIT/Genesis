@@ -1,7 +1,5 @@
 # Python
 # ===============================
-# Python
-# ===============================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -27,6 +25,14 @@ build/
 dist/
 *.egg-info/
 .eggs/
+
+# ===============================
+# GCP Service Account & Secrets
+# ===============================
+service-account-key.json
+service-account-*.json
+.env
+.env.local
 
 # ===============================
 # Dependency caches
@@ -86,7 +92,7 @@ Thumbs.db
 # ===============================
 # AI / ML
 # ===============================
-models/
+ml_models/
 checkpoints/
 wandb/
 

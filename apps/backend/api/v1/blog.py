@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel
-from agents.orchestrator import run_blog_agent
 from core.upstash_redis import get_redis_client, RedisClientType
+import httpx
 
-router= APIRouter()
+router = APIRouter()
 
 from schemas import BlogRequest
 
@@ -11,20 +10,39 @@ async def check_rate_limit(request: Request, redis: RedisClientType = Depends(ge
     client_ip = request.client.host
     key = f"rate_limit:{client_ip}"
     
-    # Simple fixed window counter
     current_count = redis.incr(key)
     
     if current_count == 1:
-        redis.expire(key, 60) # Reset after 60 seconds
+        redis.expire(key, 60)
         
     if current_count > 5:
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Max 5 requests per minute.")
 
 @router.post("/generate", dependencies=[Depends(check_rate_limit)])
-async def generate_blog(req:BlogRequest):
+async def generate_blog(req: BlogRequest, http_request: Request):
+    """DEPRECATED: Forwards to /v1/content/generate for backward compatibility."""
     try:
-        result = await run_blog_agent(req)
-        return result
+        new_request = {
+            "prompt": f"Generate a {req.tone} {req.length} blog post about: {req.prompt}",
+            "safety_level": "moderate",
+            "conversation_history": []
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:8000/v1/content/generate",
+                json=new_request,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "blog": data["content"],
+                "success": data["success"],
+                "cached": data["cached"],
+                "generation_time_ms": data["generation_time_ms"]
+            }
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
@@ -36,11 +54,11 @@ async def generate_blog(req:BlogRequest):
         print(error_details)
         print(f"{'='*50}\n")
         
-        # Return a fallback response instead of crashing
         return {
-            "blog": f"# {req.prompt.title()}\n\n*Note: AI generation temporarily unavailable. Here's a placeholder.*\n\nThis would be a {req.length} blog post with a {req.tone} tone about: {req.prompt}\n\nError: {str(e)}"
+            "blog": f"# {req.prompt.title()}\n\n*Note: AI generation temporarily unavailable.*\n\nError: {str(e)}",
+            "success": False
         }
 
 @router.get("/test")
 async def test_endpoint():
-    return {"status": "ok", "message": "Blog router is working"} 
+    return {"status": "ok", "message": "Blog router working (deprecated)"}

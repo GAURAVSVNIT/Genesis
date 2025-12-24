@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { generateBlog, type BlogRequest } from '@/lib/api/blog'
+import { generateBlog, type BlogRequest, type BlogResponse } from '@/lib/api/blog'
 import { incrementUsage, hasReachedLimit, getRemainingGenerations } from '@/lib/api/usage'
 import { saveGuestMessage } from '@/lib/api/guest'
 import { createClient } from '@/lib/supabase/client'
@@ -7,11 +7,15 @@ import { createClient } from '@/lib/supabase/client'
 export function useGeneration(isAuthenticated: boolean) {
     const [isLoading, setIsLoading] = useState(false)
     const [generatedContent, setGeneratedContent] = useState<string | null>(null)
+    const [metrics, setMetrics] = useState<Partial<BlogResponse> | undefined>()
     const [error, setError] = useState<string | null>(null)
-    const [remainingGenerations, setRemainingGenerations] = useState(getRemainingGenerations())
+    const [remainingGenerations, setRemainingGenerationsState] = useState(5) // Default value to avoid hydration mismatch
     const [guestId, setGuestId] = useState<string | null>(null)
 
     useEffect(() => {
+        // Update remaining generations after hydration
+        setRemainingGenerationsState(getRemainingGenerations())
+        
         if (!isAuthenticated) {
             let id = localStorage.getItem('guestId')
             if (!id) {
@@ -33,62 +37,35 @@ export function useGeneration(isAuthenticated: boolean) {
         setError(null)
 
         try {
+            console.log('[DEBUG] Starting blog generation with request:', request)
             const promptMessage = `Generate a ${request.tone} ${request.length} blog post about: ${request.prompt}`
 
-            // Save prompt
-            if (!isAuthenticated && guestId) {
-                // Guest: Save to Redis
-                await saveGuestMessage(guestId, {
-                    role: 'user',
-                    content: promptMessage,
-                    timestamp: new Date().toISOString()
-                })
-            } else if (isAuthenticated) {
-                // Authenticated: Save to Supabase
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    await supabase.from('chats').insert({
-                        user_id: user.id,
-                        role: 'user',
-                        content: promptMessage,
-                        created_at: new Date().toISOString()
-                    })
-                }
-            }
+            // Note: The backend /v1/content/generate already saves all conversations and messages
+            // to both conversation_cache and message_cache tables. No need for separate frontend calls.
 
-            const response = await generateBlog(request)
-            setGeneratedContent(response.blog)
-
-            // Save response
-            if (!isAuthenticated && guestId) {
-                // Guest: Save to Redis
-                await saveGuestMessage(guestId, {
-                    role: 'assistant',
-                    content: response.blog,
-                    timestamp: new Date().toISOString()
-                })
-            } else if (isAuthenticated) {
-                // Authenticated: Save to Supabase
-                const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    await supabase.from('chats').insert({
-                        user_id: user.id,
-                        role: 'assistant',
-                        content: response.blog,
-                        created_at: new Date().toISOString()
-                    })
-                }
+            console.log('[DEBUG] Calling generateBlog API...')
+            // Inject guestId if not authenticated
+            const requestWithGuestId = {
+                ...request,
+                guestId: !isAuthenticated ? guestId : undefined
             }
+            const response = await generateBlog(requestWithGuestId)
+            console.log('[DEBUG] Received response:', response)
+            setGeneratedContent(response.content)
+            setMetrics(response)
+
+            // Note: Backend handles all persistence (conversation_cache + message_cache)
 
             // Increment usage for anonymous users
             if (!isAuthenticated) {
                 incrementUsage()
-                setRemainingGenerations(getRemainingGenerations())
+                setRemainingGenerationsState(getRemainingGenerations())
             }
+            
+            return response
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate content')
+            return null
         } finally {
             setIsLoading(false)
         }
@@ -98,6 +75,7 @@ export function useGeneration(isAuthenticated: boolean) {
         generate,
         isLoading,
         generatedContent,
+        metrics,
         error,
         remainingGenerations,
         hasReachedLimit: !isAuthenticated && hasReachedLimit(),

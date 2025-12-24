@@ -30,7 +30,7 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
     const [length, setLength] = useState('medium')
     const [showAuthGate, setShowAuthGate] = useState(false)
 
-    const { generate, isLoading, generatedContent, error, remainingGenerations, hasReachedLimit } =
+    const { generate, isLoading, generatedContent, metrics, error, remainingGenerations, hasReachedLimit } =
         useGeneration(isAuthenticated)
 
     const handleModeChange = (newMode: Mode) => {
@@ -53,140 +53,169 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto space-y-6">
+        <div className="w-full min-h-screen py-8 px-4">
             {showAuthGate && <AuthGate feature={mode as 'image' | 'video'} />}
 
-            <div className="text-center space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight">Generate Content with AI</h1>
-                <p className="text-lg text-muted-foreground">
-                    Create blog posts, images, and videos using advanced AI
+            {/* Hero Section */}
+            <div className="text-center space-y-4 mb-12">
+                <div className="flex justify-center mb-6">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
+                        <span className="text-3xl">✨</span>
+                    </div>
+                </div>
+                <h1 className="text-5xl md:text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/70">
+                    Create Content with AI
+                </h1>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                    Harness the power of multi-agent AI to generate blogs, images, and videos instantly
                 </p>
             </div>
 
-            <Card className="p-6 space-y-6">
-                {/* Mode Selector */}
-                <div className="flex gap-2">
-                    <Button
-                        variant={mode === 'text' ? 'default' : 'outline'}
-                        onClick={() => handleModeChange('text')}
-                        className="flex-1"
-                    >
-                        Text
-                    </Button>
-                    <Button
-                        variant={mode === 'image' ? 'default' : 'outline'}
-                        onClick={() => handleModeChange('image')}
-                        className="flex-1"
-                    >
-                        Image {!isAuthenticated && '🔒'}
-                    </Button>
-                    <Button
-                        variant={mode === 'video' ? 'default' : 'outline'}
-                        onClick={() => handleModeChange('video')}
-                        className="flex-1"
-                    >
-                        Video {!isAuthenticated && '🔒'}
-                    </Button>
-                </div>
-
-                {/* Prompt Input */}
-                <div className="space-y-2">
-                    <Label htmlFor="prompt">Your Prompt</Label>
-                    <Textarea
-                        id="prompt"
-                        placeholder="Describe what you want to generate..."
-                        value={prompt}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
-                        rows={6}
-                        className="resize-none"
-                    />
-                </div>
-
-                {/* Text Mode Options */}
-                {mode === 'text' && (
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="tone">Tone</Label>
-                            <Select value={tone} onValueChange={setTone}>
-                                <SelectTrigger id="tone">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="informative">Informative</SelectItem>
-                                    <SelectItem value="casual">Casual</SelectItem>
-                                    <SelectItem value="professional">Professional</SelectItem>
-                                    <SelectItem value="friendly">Friendly</SelectItem>
-                                    <SelectItem value="formal">Formal</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="length">Length</Label>
-                            <Select value={length} onValueChange={setLength}>
-                                <SelectTrigger id="length">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="short">Short</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="long">Long</SelectItem>
-                                </SelectContent>
-                            </Select>
+            <div className="max-w-4xl mx-auto space-y-6">
+                <Card className="p-8 space-y-8 border-border/50 shadow-lg backdrop-blur-sm bg-card/50">
+                    {/* Mode Selector */}
+                    <div className="space-y-4">
+                        <Label className="text-base font-semibold">Content Type</Label>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Button
+                                variant={mode === 'text' ? 'default' : 'outline'}
+                                onClick={() => handleModeChange('text')}
+                                className="h-12 text-base"
+                            >
+                                📝 Text
+                            </Button>
+                            <Button
+                                variant={mode === 'image' ? 'default' : 'outline'}
+                                onClick={() => handleModeChange('image')}
+                                className="h-12 text-base"
+                            >
+                                🖼️ Image {!isAuthenticated && '🔒'}
+                            </Button>
+                            <Button
+                                variant={mode === 'video' ? 'default' : 'outline'}
+                                onClick={() => handleModeChange('video')}
+                                className="h-12 text-base"
+                            >
+                                🎬 Video {!isAuthenticated && '🔒'}
+                            </Button>
                         </div>
                     </div>
-                )}
 
-                {/* Generate Button */}
-                <Button
-                    onClick={handleGenerate}
-                    disabled={isLoading || !prompt.trim() || hasReachedLimit}
-                    className="w-full"
-                    size="lg"
-                >
-                    {isLoading ? 'Generating...' : 'Generate Content'}
-                </Button>
+                    {/* Prompt Input */}
+                    <div className="space-y-3">
+                        <Label htmlFor="prompt" className="text-base font-semibold">
+                            Your Creative Brief
+                        </Label>
+                        <Textarea
+                            id="prompt"
+                            placeholder="Describe what you want to create. Be as detailed as you'd like..."
+                            value={prompt}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
+                            rows={6}
+                            className="resize-none rounded-xl text-base border-border/50 focus:border-primary focus:ring-primary/20"
+                        />
+                        <p className="text-xs text-muted-foreground">💡 Tip: More details = better results</p>
+                    </div>
 
-                {/* Usage Counter for Anonymous Users */}
-                {!isAuthenticated && (
-                    <div className="text-center space-y-2">
-                        {hasReachedLimit ? (
-                            <div className="space-y-2">
-                                <p className="text-sm text-destructive font-medium">
-                                    You've reached your free generation limit
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    <Link href="/auth/sign-up" className="text-primary underline underline-offset-4">
-                                        Sign up
-                                    </Link>
-                                    {' '}or{' '}
-                                    <Link href="/auth/login" className="text-primary underline underline-offset-4">
-                                        Sign in
-                                    </Link>
-                                    {' '}for unlimited access
-                                </p>
+                    {/* Text Mode Options */}
+                    {mode === 'text' && (
+                        <div className="space-y-4">
+                            <Label className="text-base font-semibold">Content Settings</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                    <Label htmlFor="tone" className="text-sm">Writing Tone</Label>
+                                    <Select value={tone} onValueChange={setTone}>
+                                        <SelectTrigger id="tone" className="border-border/50">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="informative">📚 Informative</SelectItem>
+                                            <SelectItem value="casual">😊 Casual</SelectItem>
+                                            <SelectItem value="professional">💼 Professional</SelectItem>
+                                            <SelectItem value="friendly">🤝 Friendly</SelectItem>
+                                            <SelectItem value="formal">🎩 Formal</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label htmlFor="length" className="text-sm">Content Length</Label>
+                                    <Select value={length} onValueChange={setLength}>
+                                        <SelectTrigger id="length" className="border-border/50">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="short">📝 Short (300-500 words)</SelectItem>
+                                            <SelectItem value="medium">📄 Medium (800-1200 words)</SelectItem>
+                                            <SelectItem value="long">📚 Long (1500+ words)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Generate Button */}
+                    <Button
+                        onClick={handleGenerate}
+                        disabled={isLoading || !prompt.trim() || hasReachedLimit}
+                        className="w-full h-12 text-base font-semibold"
+                        size="lg"
+                    >
+                        {isLoading ? (
+                            <>
+                                <span className="animate-spin mr-2">⏳</span>
+                                Generating your content...
+                            </>
                         ) : (
-                            <p className="text-sm text-muted-foreground">
-                                💡 {remainingGenerations}/5 free generations remaining •{' '}
-                                <Link href="/auth/sign-up" className="text-primary underline underline-offset-4">
-                                    Sign in for unlimited
-                                </Link>
-                            </p>
+                            <>
+                                ✨ Generate Content
+                            </>
                         )}
+                    </Button>
+
+                    {/* Usage Counter for Anonymous Users */}
+                    {!isAuthenticated && (
+                        <div className="text-center space-y-3 py-3 px-4 bg-primary/5 rounded-lg border border-primary/10">
+                            {hasReachedLimit ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm text-destructive font-semibold">
+                                        🎯 You've used your free generations
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        <Link href="/auth/sign-up" className="text-primary font-semibold hover:underline">
+                                            Create an account
+                                        </Link>
+                                        {' '}for unlimited access
+                                    </p>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    💡 {remainingGenerations}/5 free generations • 
+                                    <Link href="/auth/sign-up" className="text-primary font-semibold hover:underline ml-1">
+                                        Sign in for unlimited
+                                    </Link>
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Error Display */}
+                    {error && (
+                        <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm border border-destructive/20 flex items-start gap-3">
+                            <span className="text-lg flex-shrink-0">⚠️</span>
+                            <span>{error}</span>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Generated Content */}
+                {(generatedContent || isLoading) && (
+                    <div className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-4 duration-300">
+                        <GenerationResult content={generatedContent} isLoading={isLoading} metrics={metrics} />
                     </div>
                 )}
-
-                {/* Error Display */}
-                {error && (
-                    <div className="p-4 bg-destructive/10 text-destructive rounded-md text-sm">
-                        {error}
-                    </div>
-                )}
-            </Card>
-
-            {/* Generated Content */}
-            <GenerationResult content={generatedContent} isLoading={isLoading} />
+            </div>
         </div>
     )
 }

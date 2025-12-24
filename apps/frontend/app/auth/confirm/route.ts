@@ -17,8 +17,23 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code')
     if (code) {
         const supabase = await createClient()
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (!error) {
+        const { error, data } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error && data?.user) {
+            // Trigger migration for signup confirmation
+            const guestId = request.cookies.get('pendingMigrationGuestId')?.value
+            if (guestId) {
+                try {
+                    await fetch('http://localhost:8000/v1/guest/migrate/' + guestId, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ authenticated_user_id: data.user.id }),
+                    })
+                    // Mark migration as done
+                    redirectTo.searchParams.set('migrated', 'true')
+                } catch (err) {
+                    console.error('Migration error:', err)
+                }
+            }
             if (next) {
                 redirectTo.pathname = next
             }
@@ -26,7 +41,7 @@ export async function GET(request: NextRequest) {
         } else {
             console.error('Auth Code Exchange Error:', error)
             redirectTo.pathname = '/auth/error'
-            redirectTo.searchParams.set('error', error.message)
+            redirectTo.searchParams.set('error', error?.message || 'Unknown error')
             return NextResponse.redirect(redirectTo)
         }
     }
@@ -34,17 +49,32 @@ export async function GET(request: NextRequest) {
     if (token_hash && type) {
         const supabase = await createClient()
 
-        const { error } = await supabase.auth.verifyOtp({
+        const { error, data } = await supabase.auth.verifyOtp({
             type,
             token_hash,
         })
-        if (!error) {
+        if (!error && data?.user) {
+            // Trigger migration for email verification
+            const guestId = request.cookies.get('pendingMigrationGuestId')?.value
+            if (guestId) {
+                try {
+                    await fetch('http://localhost:8000/v1/guest/migrate/' + guestId, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ authenticated_user_id: data.user.id }),
+                    })
+                    // Mark migration as done
+                    redirectTo.searchParams.set('migrated', 'true')
+                } catch (err) {
+                    console.error('Migration error:', err)
+                }
+            }
             redirectTo.searchParams.delete('next')
             return NextResponse.redirect(redirectTo)
         } else {
             console.error('Auth Verify OTP Error:', error)
             redirectTo.pathname = '/auth/error'
-            redirectTo.searchParams.set('error', error.message)
+            redirectTo.searchParams.set('error', error?.message || 'Unknown error')
             return NextResponse.redirect(redirectTo)
         }
     }
