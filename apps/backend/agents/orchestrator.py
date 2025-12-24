@@ -1,22 +1,19 @@
 from schemas import BlogRequest
 import os
 from dotenv import load_dotenv
+from core.vertex_ai import get_vertex_ai_service
 
 load_dotenv()
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Load environment variables
 from pathlib import Path
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-# Get API key with fallback
-api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-# Initialize LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash", 
-    api_key=api_key
+# Initialize Vertex AI service
+llm = get_vertex_ai_service(
+    project_id=os.getenv("GCP_PROJECT_ID"),
+    model="gemini-2.0-flash"
 )
 
 async def run_blog_agent(req: BlogRequest):

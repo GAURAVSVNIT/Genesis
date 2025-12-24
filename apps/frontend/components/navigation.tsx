@@ -29,17 +29,13 @@ export function Navigation() {
 
     if (loading) {
         return (
-            <nav className="border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-8">
-                            <Link href="/" className="text-xl font-bold">
-                                Genesis
-                            </Link>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {/* Loading state */}
-                        </div>
+            <nav className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                    <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                        Genesis
+                    </Link>
+                    <div className="flex items-center gap-4">
+                        {/* Loading state */}
                     </div>
                 </div>
             </nav>
@@ -47,38 +43,34 @@ export function Navigation() {
     }
 
     return (
-        <nav className="border-b">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                    <div className="flex items-center gap-8">
-                        <Link href="/" className="text-xl font-bold">
-                            Genesis
-                        </Link>
-                    </div>
+        <nav className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl shadow-lg">
+            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    Genesis
+                </Link>
 
-                    <div className="flex items-center gap-4">
-                        {user ? (
-                            <>
-                                <span className="text-sm text-muted-foreground">{user.email}</span>
-                                <LogoutButton />
-                            </>
-                        ) : (
-                            <>
-                                <Link
-                                    href="/auth/login"
-                                    className="text-sm font-medium hover:text-primary transition-colors"
-                                >
-                                    Sign In
-                                </Link>
-                                <Link
-                                    href="/auth/sign-up"
-                                    className="text-sm font-medium bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-                                >
-                                    Sign Up
-                                </Link>
-                            </>
-                        )}
-                    </div>
+                <div className="flex items-center gap-4">
+                    {user ? (
+                        <>
+                            <span className="text-sm text-slate-300">{user.email}</span>
+                            <LogoutButton />
+                        </>
+                    ) : (
+                        <>
+                            <Link
+                                href="/auth/login"
+                                className="text-sm font-medium text-slate-300 hover:text-blue-400 transition-colors duration-200"
+                            >
+                                Sign In
+                            </Link>
+                            <Link
+                                href="/auth/sign-up"
+                                className="text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                            >
+                                Sign Up
+                            </Link>
+                        </>
+                    )}
                 </div>
             </div>
         </nav>

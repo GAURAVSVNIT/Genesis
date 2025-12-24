@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
+import { SignupMigrationHandler } from "@/components/signup-migration-handler";
+import { GuestSessionInit } from "@/components/guest-session-init";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,14 +27,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950`}
       >
+        <GuestSessionInit />
         <Navigation />
         <GuestMigrationHandler />
+        <SignupMigrationHandler />
         {children}
       </body>
     </html>
   );
 }
+
