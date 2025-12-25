@@ -2,31 +2,47 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 # Load environment variables early
+print("⬇ Importing config...")
 from core.config import settings
+print("⬇ Importing blog...")
 from api.v1.blog import router as blog_router
+print("⬇ Importing guest...")
 from api.v1.guest import router as guest_router
+print("⬇ Importing agent...")
 from api.v1.agent import router as agent_router
+print("⬇ Importing embeddings...")
 from api.v1.embeddings import router as embeddings_router
+print("⬇ Importing guardrails...")
 from api.v1.guardrails import router as guardrails_router
+print("⬇ Importing content...")
 from api.v1.content import router as content_router
+print("⬇ Importing classifier...")
 from api.v1.classifier import router as classifier_router
+print("⬇ Importing context...")
 from api.v1.context import router as context_router
+print("⬇ Importing trends...")
 from api.routes.trends import router as trends_router
+print("⬇ Importing redis...")
 from core.upstash_redis import UpstashRedisClient
+print("⬇ Importing database...")
 from database.database import init_db
+print(" Imports complete.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print(" Starting lifespan...")
     try:
+        print("  Calling init_db()...")
         init_db()  # Create database tables
+        print("  init_db() completed.")
     except Exception as e:
-        print(f"⚠️  Warning: Database initialization failed: {e}")
-        print("⚠️  Server will continue running in limited mode")
+        print(f" Warning: Database initialization failed: {e}")
+        print(" Server will continue running in limited mode")
     try:
         UpstashRedisClient.get_instance()
     except Exception as e:
-        print(f"⚠️  Warning: Redis initialization failed: {e}")
+        print(f" Warning: Redis initialization failed: {e}")
     yield
     # Shutdown
     try:

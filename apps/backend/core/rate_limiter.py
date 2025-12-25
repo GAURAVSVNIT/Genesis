@@ -29,7 +29,11 @@ class SlidingWindowRateLimiter:
         """
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.redis = RedisManager.get_instance()
+        
+    @property
+    def redis(self):
+        """Lazy load Redis client."""
+        return RedisManager.get_instance()
     
     def check_rate_limit(
         self,

@@ -9,6 +9,7 @@ from core.upstash_redis import RedisManager
 class ResponseCache:
     """Cache expensive responses in Redis."""
     
+    
     def __init__(self, ttl_seconds: int = 300):
         """
         Initialize cache.
@@ -16,8 +17,12 @@ class ResponseCache:
         Args:
             ttl_seconds: Time to live for cached responses (default 5 minutes)
         """
-        self.redis = RedisManager.get_instance()
         self.ttl = ttl_seconds
+        
+    @property
+    def redis(self):
+        """Lazy load Redis client."""
+        return RedisManager.get_instance()
     
     def _generate_key(self, prefix: str, data: dict) -> str:
         """Generate cache key from request data."""

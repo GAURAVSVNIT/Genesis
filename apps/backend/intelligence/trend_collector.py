@@ -105,7 +105,7 @@ class TrendCollector:
         if not sources:
             sources = self.get_available_sources()
             if not sources:
-                print("⚠️ No API keys configured. Using mock data for testing.")
+                print(" No API keys configured. Using mock data for testing.")
                 return self._get_mock_trends(keywords)
         else:
             # Filter sources to only those available
@@ -113,21 +113,21 @@ class TrendCollector:
             sources = [s for s in sources if s in available_sources]
             
             if not sources:
-                print(f"⚠️ None of the requested sources have API keys configured.")
-                print(f"   Available sources: {available_sources if available_sources else 'None'}")
+                print(f" None of the requested sources have API keys configured.")
+                print(f" Available sources: {available_sources if available_sources else 'None'}")
                 return self._get_mock_trends(keywords)
         
-        print(f"📡 Using sources: {sources}")
+        print(f" Using sources: {sources}")
         
         # Check cache first
         if self.use_cache:
             cached_data = await self._get_cached_trends(keywords, sources)
             if cached_data:
-                print(f"✅ Using cached trends for: {keywords}")
+                print(f" Using cached trends for: {keywords}")
                 cached_data["from_cache"] = True
                 return cached_data
         
-        print(f"⏳ Fetching fresh trends for: {keywords}")
+        print(f" Fetching fresh trends for: {keywords}")
         
         # Create tasks for all sources concurrently
         tasks = []

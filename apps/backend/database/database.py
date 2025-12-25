@@ -20,9 +20,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")  # Default to 'postgres' if not set
 
-logger.info(f"🔍 Checking DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET'}")
-logger.info(f"🔍 Checking SUPABASE_URL: {'SET' if SUPABASE_URL else 'NOT SET'}")
-logger.info(f"🔍 Checking DB_PASSWORD: {'SET' if DB_PASSWORD and DB_PASSWORD != 'postgres' else 'USING DEFAULT'}")
+logger.info(f" Checking DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET'}")
+logger.info(f" Checking SUPABASE_URL: {'SET' if SUPABASE_URL else 'NOT SET'}")
+logger.info(f" Checking DB_PASSWORD: {'SET' if DB_PASSWORD and DB_PASSWORD != 'postgres' else 'USING DEFAULT'}")
 
 if not DATABASE_URL and SUPABASE_URL:
     # Transform https://[REF].supabase.co to postgresql://postgres:[PASS]@db.[REF].supabase.co:5432/postgres
@@ -31,44 +31,53 @@ if not DATABASE_URL and SUPABASE_URL:
         DATABASE_URL = f"postgresql://postgres:{DB_PASSWORD}@db.{project_ref}.supabase.co:5432/postgres"
         logger.info(f"🔗 Derived DATABASE_URL from SUPABASE_URL for project: {project_ref}")
     except Exception as e:
-        logger.error(f"❌ Failed to derive DATABASE_URL: {e}")
+        logger.error(f" Failed to derive DATABASE_URL: {e}")
 
 if not DATABASE_URL:
     logger.error("ERROR: DATABASE_URL (or SUPABASE_URL + DB_PASSWORD) is not set!")
-    logger.error("Please set these in your .env file.")
-    raise ValueError("DATABASE_URL not found")
+    logger.error("Please set these in your .env file. Database functionality will be disabled.")
+    # Do not raise here, allow engine to be created (or fail gracefully below)
+    # raise ValueError("DATABASE_URL not found")
 
 # Log the masked URL for debugging
-masked_url = DATABASE_URL.replace(DB_PASSWORD, "***") if DB_PASSWORD in DATABASE_URL else DATABASE_URL
+masked_url = "NOT_SET"
+if DATABASE_URL:
+    masked_url = DATABASE_URL.replace(DB_PASSWORD, "***") if DB_PASSWORD and DB_PASSWORD in DATABASE_URL else DATABASE_URL
 logger.info(f"✅ Using DATABASE_URL: {masked_url}")
 
-try:
-    engine = create_engine(
-        DATABASE_URL,
-        echo=os.getenv("DEBUG", "false").lower() == "true",
-        poolclass=NullPool,  # Important for serverless/railway deployments
-        connect_args={
-            "options": "-c timezone=utc",  # Set UTC timezone
-            "keepalives": 1,
-            "keepalives_idle": 30,
-        }
-    )
-    logger.info("✅ SQLAlchemy engine created successfully")
-    
-    # Test connection
-    with engine.connect() as conn:
-        logger.info("✅ Database connection test SUCCESSFUL")
-except Exception as e:
-    logger.error(f"❌ Failed to create engine or test connection: {e}")
-    import traceback
-    logger.error(traceback.format_exc())
+engine = None
+if DATABASE_URL:
+    try:
+        engine = create_engine(
+            DATABASE_URL,
+            echo=os.getenv("DEBUG", "false").lower() == "true",
+            poolclass=NullPool,  # Important for serverless/railway deployments
+            connect_args={
+                "options": "-c timezone=utc",  # Set UTC timezone
+                "keepalives": 1,
+                "keepalives_idle": 30,
+            }
+        )
+        logger.info("✅ SQLAlchemy engine created successfully")
+        # Removed immediate connection test to prevent startup blocking/crashes
+    except Exception as e:
+        logger.error(f"❌ Failed to create engine: {e}")
+        # engine remains None
+else:
+    logger.warning("⚠️ DATABASE_URL is not set. Engine creation skipped.")
 
 # Create session factory
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-)
+# Create session factory (handle case where engine is None)
+if engine:
+    SessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+    )
+else:
+    # Dummy session maker that fails when used, but allows import to succeed
+    def SessionLocal():
+        raise RuntimeError("Database engine not initialized. Check configuration.")
 
 # Base class for models
 Base = declarative_base()
@@ -84,23 +93,27 @@ def get_db():
 def init_db():
     """Initialize database - create all tables if they don't exist"""
     try:
+        if not engine:
+            logger.warning(" Database engine not initialized, skipping table creation.")
+            return
+
         # Check if any tables exist
         inspector = __import__('sqlalchemy').inspect(engine)
         existing_tables = inspector.get_table_names()
         
-        logger.info(f"📊 Existing tables in database: {existing_tables}")
+        logger.info(f" Existing tables in database: {existing_tables}")
         
         Base.metadata.create_all(bind=engine)
         
-        logger.info(f"✅ All base model tables created (total: {len(Base.metadata.tables)})")
-        logger.info(f"📋 Tables created: {list(Base.metadata.tables.keys())}")
+        logger.info(f" All base model tables created (total: {len(Base.metadata.tables)})")
+        logger.info(f" Tables created: {list(Base.metadata.tables.keys())}")
         
         if existing_tables:
-            logger.info("✅ Database already initialized - all tables present")
+            logger.info(" Database already initialized - all tables present")
         else:
-            logger.info("✅ Database tables created successfully!")
+            logger.info(" Database tables created successfully!")
     except Exception as e:
-        logger.error(f"❌ Error initializing database: {e}")
+        logger.error(f" Error initializing database: {e}")
         import traceback
         logger.error(traceback.format_exc())
         raise
@@ -108,8 +121,12 @@ def init_db():
 def drop_db():
     """Drop all tables - ONLY FOR DEVELOPMENT"""
     try:
+        if not engine:
+            logger.warning(" Database engine not initialized, skipping drop_all.")
+            return
+
         Base.metadata.drop_all(bind=engine)
-        logger.info("✅ All tables dropped!")
+        logger.info(" All tables dropped!")
     except Exception as e:
-        logger.error(f"❌ Error dropping tables: {e}")
+        logger.error(f" Error dropping tables: {e}")
         raise
