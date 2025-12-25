@@ -23,8 +23,11 @@ import re
 router = APIRouter()
 
 # Initialize Vertex AI
-if settings.GCP_PROJECT_ID:
-    vertexai.init(project=settings.GCP_PROJECT_ID)
+try:
+    if settings.GCP_PROJECT_ID:
+        vertexai.init(project=settings.GCP_PROJECT_ID)
+except Exception as e:
+    print(f"Failed to initialize Vertex AI at module level: {e}")
 
 # Redis for caching classifications
 redis_manager = RedisManager()

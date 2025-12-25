@@ -1,19 +1,19 @@
-import dotenv
 import os
+from core.config import settings
 
 # Load environment variables first
 dotenv.load_dotenv()
 
 from core.vertex_ai import get_vertex_ai_service
 
-# Initialize Vertex AI service
-llm = get_vertex_ai_service(project_id=os.getenv("GCP_PROJECT_ID"), model="gemini-2.0-flash")
-
 async def review(state):
     """
     Reviewer Agent - Quality assurance and final review
     Validates the execution and provides the final polished output
     """
+    # Initialize Vertex AI service lazily
+    project_id = os.getenv("GCP_PROJECT_ID") or settings.GCP_PROJECT_ID
+    llm = get_vertex_ai_service(project_id=project_id, model="gemini-2.0-flash")
     execution = state.get('execution', '')
     
     prompt = f"""

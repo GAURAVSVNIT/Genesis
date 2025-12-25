@@ -1,19 +1,19 @@
-import dotenv
 import os
+from core.config import settings
 
 # Load environment variables first
 dotenv.load_dotenv()
 
 from core.vertex_ai import get_vertex_ai_service
 
-# Initialize Vertex AI service
-llm = get_vertex_ai_service(project_id=os.getenv("GCP_PROJECT_ID"), model="gemini-2.0-flash")
-
 async def coordinate(state):
     """
     Coordinator Agent - Oversees the entire workflow
     Analyzes the user request and provides guidance to other agents
     """
+    # Initialize Vertex AI service lazily
+    project_id = os.getenv("GCP_PROJECT_ID") or settings.GCP_PROJECT_ID
+    llm = get_vertex_ai_service(project_id=project_id, model="gemini-2.0-flash")
     prompt = f"""
     You are the Coordinator Agent overseeing this task: '{state['task']}'
     
