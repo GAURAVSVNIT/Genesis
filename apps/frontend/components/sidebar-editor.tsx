@@ -41,6 +41,13 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         setIsDirty(false)
     }, [initialData])
 
+    // Update editor data when content changes externally
+    useEffect(() => {
+        if (editor && editor.getData() !== content) {
+            editor.setData(content)
+        }
+    }, [editor, content])
+
     const handleSave = useCallback(async () => {
         setIsSaving(true)
         try {
