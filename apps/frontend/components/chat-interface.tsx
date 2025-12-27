@@ -610,7 +610,9 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             </div>
                         )}
 
-                        {messages.map((msg) => (
+                        {messages
+                            .filter(msg => !(msg.role === 'assistant' && (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite')))
+                            .map((msg) => (
                             <div
                                 key={msg.id}
                                 className={cn(
