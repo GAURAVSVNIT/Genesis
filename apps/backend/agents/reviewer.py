@@ -1,4 +1,5 @@
 import os
+import dotenv
 from core.config import settings
 
 # Load environment variables first
