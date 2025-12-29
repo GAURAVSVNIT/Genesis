@@ -5,6 +5,7 @@ import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
 import { SignupMigrationHandler } from "@/components/signup-migration-handler";
 import { GuestSessionInit } from "@/components/guest-session-init";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
         <GuestMigrationHandler />
         <SignupMigrationHandler />
         {children}
+        <Toaster />
       </body>
     </html>
   );

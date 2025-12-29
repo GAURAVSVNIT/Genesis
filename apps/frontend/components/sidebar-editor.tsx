@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { CKEditor, useCKEditorCloud } from '@ckeditor/ckeditor5-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { X, Save, RotateCcw } from 'lucide-react'
 import {
@@ -175,7 +174,10 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         HtmlEmbed,
         SourceEditing,
         TextTransformation,
-        MediaEmbed
+        MediaEmbed,
+        Markdown,
+        ImageUpload,
+        Base64UploadAdapter
     } = cloud.CKEditor
 
     return (
@@ -221,9 +223,8 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         {['black', 'slate-700', 'blue-600', 'red-600', 'green-600', 'purple-600'].map(color => (
                             <button
                                 key={color}
-                                className={`w-6 h-6 rounded border-2 transition-all ${
-                                    textColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
-                                } bg-${color === 'black' ? 'black' : color}`}
+                                className={`w-6 h-6 rounded border-2 transition-all ${textColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
+                                    } bg-${color === 'black' ? 'black' : color}`}
                                 onClick={() => applyTextColor(color)}
                                 title={color}
                             />
@@ -239,9 +240,8 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         {['white', 'slate-100', 'blue-50', 'yellow-50', 'green-50', 'purple-50'].map(color => (
                             <button
                                 key={color}
-                                className={`w-6 h-6 rounded border-2 transition-all ${
-                                    backgroundColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
-                                } bg-${color}`}
+                                className={`w-6 h-6 rounded border-2 transition-all ${backgroundColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
+                                    } bg-${color}`}
                                 onClick={() => applyBackgroundColor(color)}
                                 title={color}
                             />
@@ -303,7 +303,10 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                                 HtmlEmbed,
                                 SourceEditing,
                                 TextTransformation,
-                                MediaEmbed
+                                MediaEmbed,
+                                Markdown,
+                                ImageUpload,
+                                Base64UploadAdapter
                             ],
                             toolbar: {
                                 items: [
@@ -314,7 +317,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                                     'fontColor', 'fontBackgroundColor', 'highlight', '|',
                                     'alignment', '|',
                                     'bulletedList', 'numberedList', 'outdent', 'indent', '|',
-                                    'link', 'image', 'mediaEmbed', 'table', 'blockQuote', 'codeBlock', '|',
+                                    'link', 'uploadImage', 'mediaEmbed', 'insertTable', 'blockQuote', 'codeBlock', '|',
                                     'sourceEditing'
                                 ],
                                 shouldNotGroupWhenFull: true

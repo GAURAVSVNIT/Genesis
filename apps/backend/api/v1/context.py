@@ -48,7 +48,7 @@ class MessageSnapshot(BaseModel):
     id: str
     role: str  # 'user', 'assistant'
     content: str
-    type: str  # 'chat', 'blog'
+    type: str  # 'chat', 'blog', 'modify', 'rewrite'
     timestamp: str
     tone: Optional[str] = None
     length: Optional[str] = None

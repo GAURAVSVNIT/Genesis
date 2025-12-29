@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from database.database import get_db
 from database.models.content import GeneratedContent
 from core.embeddings import get_embedding_service
-from core.local_embeddings import get_local_embedding_service
 
 
 router = APIRouter(prefix="/v1/embeddings", tags=["embeddings"])
@@ -21,14 +20,14 @@ class CreateEmbeddingRequest(BaseModel):
     """Request to create embedding for content."""
     content_id: str
     text: str
-    use_local: bool = False  # Use local embeddings instead of Vertex AI
+    # use_local: bool = False  # Deprecated
 
 
 class SimilaritySearchRequest(BaseModel):
     """Request to search for similar content."""
     query: str
     limit: int = 5
-    use_local: bool = False  # Use local embeddings instead of Vertex AI
+    # use_local: bool = False  # Deprecated
 
 
 class SimilarContentResponse(BaseModel):
@@ -49,10 +48,10 @@ async def create_embedding(
     """
     Create and store embedding for generated content.
     
-    Can use either Vertex AI multimodalembedding@001 or local sentence-transformers models.
+    Uses Vertex AI multimodalembedding@001.
     
     Args:
-        request: CreateEmbeddingRequest with content_id, text, and use_local flag
+        request: CreateEmbeddingRequest with content_id and text
         db: Database session
         
     Returns:
@@ -68,12 +67,8 @@ async def create_embedding(
             raise HTTPException(status_code=404, detail="Content not found")
         
         # Choose embedding service
-        if request.use_local:
-            embedding_service = get_local_embedding_service()
-            model_name = "all-MiniLM-L6-v2"
-        else:
-            embedding_service = get_embedding_service()
-            model_name = "multimodalembedding@001"
+        embedding_service = get_embedding_service()
+        model_name = "multimodalembedding@001"
         
         # Generate and store embedding
         embedding = embedding_service.store_embedding(
@@ -101,10 +96,10 @@ async def search_similar_content(
     """
     Search for content similar to the query using vector similarity.
     
-    Can use either Vertex AI multimodalembedding@001 or local sentence-transformers models.
+    Uses Vertex AI multimodalembedding@001.
     
     Args:
-        request: SimilaritySearchRequest with query, limit, and use_local flag
+        request: SimilaritySearchRequest with query and limit
         db: Database session
         
     Returns:
@@ -112,10 +107,7 @@ async def search_similar_content(
     """
     try:
         # Choose embedding service
-        if request.use_local:
-            embedding_service = get_local_embedding_service()
-        else:
-            embedding_service = get_embedding_service()
+        embedding_service = get_embedding_service()
         
         similar_content = embedding_service.find_similar_content(
             query_text=request.query,
@@ -139,20 +131,13 @@ async def search_similar_content(
 
 
 @router.get("/health")
-async def health_check(use_local: bool = Query(False, description="Check local embedding service")):
+async def health_check():
     """
     Check if embedding service is available.
-    
-    Args:
-        use_local: If True, check local service; if False, check Vertex AI
     """
     try:
-        if use_local:
-            embedding_service = get_local_embedding_service()
-            model = "all-MiniLM-L6-v2"
-        else:
-            embedding_service = get_embedding_service()
-            model = "multimodalembedding@001"
+        embedding_service = get_embedding_service()
+        model = "multimodalembedding@001"
         
         # Try to generate a test embedding
         test_embedding = embedding_service.generate_embedding("test")
@@ -160,7 +145,7 @@ async def health_check(use_local: bool = Query(False, description="Check local e
             "status": "ok",
             "embedding_dimensions": len(test_embedding),
             "model": model,
-            "service": "local" if use_local else "vertex_ai",
+            "service": "vertex_ai",
         }
     except Exception as e:
         raise HTTPException(

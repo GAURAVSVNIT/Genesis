@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from core.vertex_ai import get_vertex_ai_service, VertexAIAgentState
 from core.guardrails import get_message_guardrails
 from core.chunking import get_chunker
-from core.local_embeddings import get_local_embedding_service
+from core.embeddings import get_embedding_service
 
 
 class AgentState(BaseModel):
@@ -48,7 +48,7 @@ class ContentGenerationAgent:
             safety_level=safety_level
         )
         self.guardrails = get_message_guardrails(safety_level)
-        self.embedder = get_local_embedding_service()
+        self.embedder = get_embedding_service()
         self.chunker = get_chunker("medium")
     
     def safety_check_node(self, state: dict) -> dict:
