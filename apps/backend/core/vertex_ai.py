@@ -9,6 +9,11 @@ from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from core.guardrails import get_message_guardrails, SafetyLevel
 from core.config import settings
+import warnings
+from langchain_core._api import LangChainDeprecationWarning
+
+# Suppress LangChain deprecation warning for ChatVertexAI
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 
 
 class VertexAIConfig:
@@ -94,16 +99,42 @@ class VertexAIService:
         """
         return self.guardrails.get_safety_report(text)
     
-    def invoke(self, messages: list[BaseMessage]) -> AIMessage:
+    async def ainvoke(self, messages: list[BaseMessage] | str) -> AIMessage:
         """
-        Invoke Vertex AI LLM.
+        Async invoke Vertex AI LLM.
         
         Args:
-            messages: List of messages (HumanMessage, SystemMessage, etc.)
+            messages: List of messages or prompt string
             
         Returns:
             AIMessage response
         """
+        if isinstance(messages, str):
+            messages = [HumanMessage(content=messages)]
+            
+        # Validate user messages
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                if not self.validate_input(msg.content):
+                    raise ValueError(f"Message failed safety checks: {msg.content[:50]}")
+        
+        # Call LLM
+        response = await self.llm.ainvoke(messages)
+        return response
+
+    def invoke(self, messages: list[BaseMessage] | str) -> AIMessage:
+        """
+        Invoke Vertex AI LLM.
+        
+        Args:
+            messages: List of messages or prompt string
+            
+        Returns:
+            AIMessage response
+        """
+        if isinstance(messages, str):
+            messages = [HumanMessage(content=messages)]
+
         # Validate user messages
         for msg in messages:
             if isinstance(msg, HumanMessage):

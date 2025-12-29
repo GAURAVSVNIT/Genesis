@@ -1,55 +1,82 @@
 """
-Service for collecting images from Unsplash.
+Service for generating images using Vertex AI Imagen.
 """
 import os
-import httpx
+import base64
 from typing import Optional
-import random
+from vertexai.preview.vision_models import ImageGenerationModel
+import vertexai
+from core.config import settings
 
 class ImageCollector:
-    """Collects high-quality images from Unsplash based on keywords."""
-    
-    BASE_URL = "https://api.unsplash.com"
+    """Generates high-quality images using Vertex AI Imagen."""
     
     def __init__(self):
-        self.access_key = os.getenv("UNSPLASH_ACCESS_KEY")
+        self.project_id = settings.GCP_PROJECT_ID
+        self.location = "us-central1" # Image generation often requires specific regions
+        self._model = None
+        
+        if self.project_id:
+            try:
+                vertexai.init(project=self.project_id, location=self.location)
+                # Load the model only when needed or lazy load
+            except Exception as e:
+                print(f"[ImageCollector] Failed to init Vertex AI: {e}")
+                with open("debug_redis.log", "a", encoding="utf-8") as f:
+                     f.write(f"[ImageCollector] Init Error: {e}\n")
+
+    @property
+    def model(self):
+        if not self._model and self.project_id:
+            try:
+                self._model = ImageGenerationModel.from_pretrained("imagegeneration@006")
+            except Exception as e:
+                print(f"[ImageCollector] Failed to load Imagen model: {e}")
+        return self._model
     
     async def get_relevant_image(self, query: str) -> Optional[str]:
         """
-        Fetch a relevant image URL for the given query.
-        Returns the 'regular' size image URL or None if failed.
+        Generate a relevant image for the given query using Imagen.
+        Returns a Base64 Data URI string.
         """
-        if not self.access_key:
-            print("[ImageCollector] No Unsplash Access Key configured.")
+        if not self.model:
+            print("[ImageCollector] Model not initialized via Vertex AI.")
             return None
             
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.BASE_URL}/search/photos",
-                    params={
-                        "query": query,
-                        "per_page": 5,
-                        "orientation": "landscape",
-                        "content_filter": "high"
-                    },
-                    headers={"Authorization": f"Client-ID {self.access_key}"},
-                    timeout=5.0
-                )
+            print(f"[ImageCollector] Generating image for: {query}")
+            
+            # Generate the image
+            # aspect_ratio: "1:1", "3:4", "4:3", "16:9", "9:16"
+            response = self.model.generate_images(
+                prompt=query,
+                number_of_images=1,
+                language="en",
+                aspect_ratio="16:9",
+                safety_filter_level="block_some",
+                person_generation="allow_adult",
+            )
+            
+            if response.images:
+                # Get the first image
+                img = response.images[0]
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    results = data.get("results", [])
-                    if results:
-                        # Pick a random one from top 5 to vary it slightly if query is same
-                        selected = random.choice(results)
-                        # Prefer regular, fallback to small/full
-                        urls = selected.get("urls", {})
-                        return urls.get("regular", urls.get("small"))
-                else:
-                    print(f"[ImageCollector] API Error: {response.status_code} - {response.text}")
-                    
+                # Check directly if it has a _image_bytes or assumption or standard method
+                # The Vertex AI Image object usually has _image_bytes or can save. 
+                # Let's check documentation or assume standard interface.
+                # Actually, standard way is img._image_bytes or img.save()
+                # Use robust method:
+                
+                img_bytes = img._image_bytes # Accessing raw bytes directly is common in this SDK
+                
+                # Encode to base64
+                b64_data = base64.b64encode(img_bytes).decode("utf-8")
+                return f"data:image/png;base64,{b64_data}"
+                
         except Exception as e:
-            print(f"[ImageCollector] Exception: {str(e)}")
+            print(f"[ImageCollector] Generation Error: {str(e)}")
+            with open("debug_redis.log", "a", encoding="utf-8") as f:
+                 f.write(f"[ImageCollector] Generation Error: {str(e)}\n")
             
         return None
+

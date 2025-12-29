@@ -30,7 +30,7 @@ except Exception as e:
     print(f"Failed to initialize Vertex AI at module level: {e}")
 
 # Redis for caching classifications
-redis_manager = RedisManager()
+# Redis manager is utilized via get_instance() currently
 
 # System prompt for classification
 SYSTEM_PROMPT = """You are an expert intent classifier for an AI content generation platform.
@@ -111,7 +111,7 @@ Context of conversation:
     
     try:
         model = GenerativeModel(
-            "gemini-1.5-flash",
+            "gemini-2.0-flash",
             system_instruction=SYSTEM_PROMPT
         )
         
@@ -213,13 +213,15 @@ async def classify_intent(request: IntentClassificationRequest) -> IntentClassif
     
     try:
         # Try to get from cache
-        cached_result = redis_manager.get(cache_key)
-        if cached_result:
-            cached_data = json.loads(cached_result)
-            return IntentClassificationResponse(
-                **cached_data,
-                cached=True
-            )
+        redis = RedisManager.get_instance()
+        if redis:
+            cached_result = redis.get(cache_key)
+            if cached_result:
+                cached_data = json.loads(cached_result)
+                return IntentClassificationResponse(
+                    **cached_data,
+                    cached=True
+                )
     except Exception as e:
         print(f"Cache read error: {e}")
     
@@ -227,7 +229,7 @@ async def classify_intent(request: IntentClassificationRequest) -> IntentClassif
     classification = await classify_with_vertex_ai(request.prompt, request.context_summary)
     
     response = IntentClassificationResponse(
-        intent=classification["intent"],
+        intent=classification["intent"].lower(),  # Ensure valid lowercase enum
         confidence=classification["confidence"],
         reasoning=classification["reasoning"],
         cached=False
@@ -235,15 +237,17 @@ async def classify_intent(request: IntentClassificationRequest) -> IntentClassif
     
     # Cache result for 24 hours
     try:
-        redis_manager.setex(
-            cache_key,
-            86400,  # 24 hours
-            json.dumps({
-                "intent": response.intent,
-                "confidence": response.confidence,
-                "reasoning": response.reasoning
-            })
-        )
+        redis = RedisManager.get_instance()
+        if redis:
+            redis.setex(
+                cache_key,
+                86400,  # 24 hours
+                json.dumps({
+                    "intent": response.intent,
+                    "confidence": response.confidence,
+                    "reasoning": response.reasoning
+                })
+            )
     except Exception as e:
         print(f"Cache write error: {e}")
     
@@ -255,12 +259,12 @@ async def classifier_health():
     """Health check for classifier service."""
     try:
         # Test Vertex AI
-        model = GenerativeModel("gemini-1.5-flash")
+        model = GenerativeModel("gemini-2.0-flash")
         response = model.generate_content("Hi")
         return {
             "status": "healthy",
             "classifier": "operational",
-            "model": "gemini-1.5-flash",
+            "model": "gemini-2.0-flash",
             "provider": "vertex-ai"
         }
     except Exception as e:

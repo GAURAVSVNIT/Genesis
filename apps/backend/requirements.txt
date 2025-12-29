@@ -14,6 +14,7 @@ pydantic-settings>=2.0.0
 # GCP/Vertex AI
 google-cloud-aiplatform>=1.35.0
 google-auth>=2.25.0
+cachetools>=5.3.3
 
 # Database - Supabase
 sqlalchemy>=2.0.0

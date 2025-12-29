@@ -6,7 +6,7 @@ export interface MessageSnapshot {
     id: string
     role: 'user' | 'assistant'
     content: string
-    type: 'chat' | 'blog'
+    type: 'chat' | 'blog' | 'modify' | 'rewrite'
     timestamp: string
     tone?: string
     length?: string
