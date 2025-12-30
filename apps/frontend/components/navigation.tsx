@@ -5,10 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { LogoutButton } from '@/components/logout-button'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { SettingsModal } from '@/components/settings/SettingsModal'
 
 export function Navigation() {
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
     useEffect(() => {
         const supabase = createClient()
@@ -52,8 +56,23 @@ export function Navigation() {
                 <div className="flex items-center gap-4">
                     {user ? (
                         <>
-                            <span className="text-sm text-slate-300">{user.email}</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsSettingsOpen(true)}
+                                className="text-slate-300 hover:text-white hover:bg-slate-800"
+                                title="Settings"
+                            >
+                                <Settings className="w-5 h-5" />
+                            </Button>
+                            <span className="text-sm text-slate-300 hidden sm:inline">{user.email}</span>
                             <LogoutButton />
+
+                            <SettingsModal
+                                isOpen={isSettingsOpen}
+                                onClose={() => setIsSettingsOpen(false)}
+                                userId={user.id}
+                            />
                         </>
                     ) : (
                         <>

@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from api.v1.blog import router as blog_router
@@ -11,6 +12,7 @@ from api.v1.content import router as content_router
 from api.v1.classifier import router as classifier_router
 from api.v1.context import router as context_router
 from api.routes.trends import router as trends_router
+from api.v1.social import router as social_router
 from core.upstash_redis import UpstashRedisClient
 from database.database import init_db
 
@@ -38,7 +40,14 @@ app = FastAPI(title="Genesis", description="Genesis API", version="1.0.0", lifes
 # Add CORS middleware FIRST (before any routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    # Allow specific origins
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://genecis.vercel.app",
+    ],
+    # Regex to matches any localhost/127.0.0.1 port (great for dev)
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|::1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,11 +63,37 @@ app.include_router(content_router)
 app.include_router(classifier_router)
 app.include_router(context_router)
 app.include_router(trends_router)
+app.include_router(social_router, prefix="/v1/social", tags=["Social"])
 
 @app.get("/health")
 async def health_check():
     """Basic health check endpoint"""
     return {"status": "ok"}
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler to ensure CORS headers are always sent,
+    even for unhandled server errors (500).
+    """
+    import traceback
+    error_details = traceback.format_exc()
+    print(f"🔥 CRITICAL ERROR: Unhandled exception: {exc}")
+    print(error_details)
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal Server Error",
+            "error": str(exc),
+        },
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.get("/v1/health/redis")
 async def health_check_redis():

@@ -24,11 +24,16 @@ class AgentTaskResponse(BaseModel):
 
 def get_db():
     """Get database session."""
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         yield db
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        yield None
     finally:
-        db.close()
+        if db:
+            db.close()
 
 async def check_rate_limit(request: Request, redis: RedisClientType = Depends(get_redis_client)):
     client_ip = request.client.host
