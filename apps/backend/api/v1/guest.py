@@ -30,6 +30,7 @@ class MigrationRequest(BaseModel):
 
 def get_db():
     """Get database session."""
+    db = None
     try:
         db = SessionLocal()
         yield db

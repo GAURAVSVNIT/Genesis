@@ -84,11 +84,21 @@ Base = declarative_base()
 
 def get_db():
     """Get database session"""
-    db = SessionLocal()
+    db = None
+    try:
+        if SessionLocal:
+             db = SessionLocal()
+    except Exception:
+         pass
+    
     try:
         yield db
     finally:
-        db.close()
+        if db:
+            try:
+                db.close()
+            except:
+                pass
 
 def init_db():
     """Initialize database - create all tables if they don't exist"""

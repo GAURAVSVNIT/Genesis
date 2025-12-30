@@ -4,7 +4,14 @@ import { useState, useCallback, useEffect } from 'react'
 import { CKEditor, useCKEditorCloud } from '@ckeditor/ckeditor5-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { X, Save, RotateCcw } from 'lucide-react'
+import { X, Save, RotateCcw, Share2, Linkedin, Twitter } from 'lucide-react'
+import { ShareSocialModal } from '@/components/blog/ShareSocialModal'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
     Select,
     SelectContent,
@@ -18,9 +25,10 @@ interface SidebarEditorProps {
     onSave: (content: string) => Promise<void>
     onClose: () => void
     title?: string
+    userId: string
 }
 
-export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content' }: SidebarEditorProps) {
+export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId }: SidebarEditorProps) {
     const [content, setContent] = useState(initialData)
     const [isSaving, setIsSaving] = useState(false)
     const [imagePosition, setImagePosition] = useState('inline')
@@ -28,6 +36,15 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     const [backgroundColor, setBackgroundColor] = useState('white')
     const [isDirty, setIsDirty] = useState(false)
     const [editor, setEditor] = useState<any>(null)
+
+    // Share State
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+    const [sharePlatform, setSharePlatform] = useState<'linkedin' | 'twitter'>('linkedin')
+
+    const openShareModal = (platform: 'linkedin' | 'twitter') => {
+        setSharePlatform(platform)
+        setIsShareModalOpen(true)
+    }
 
     const cloud = useCKEditorCloud({
         version: '44.1.0',
@@ -414,6 +431,30 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Reset
                 </Button>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white"
+                        >
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="bg-slate-800 border-slate-700">
+                        <DropdownMenuItem onClick={() => openShareModal('linkedin')} className="text-slate-200 hover:bg-slate-700 cursor-pointer">
+                            <Linkedin className="w-4 h-4 mr-2 text-[#0077b5]" />
+                            Share to LinkedIn
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShareModal('twitter')} className="text-slate-200 hover:bg-slate-700 cursor-pointer">
+                            <Twitter className="w-4 h-4 mr-2 text-sky-500" />
+                            Share to X (Twitter)
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
                 <Button
                     onClick={handleSave}
                     size="sm"
@@ -424,6 +465,15 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                     {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
             </div>
+
+            <ShareSocialModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                userId={userId}
+                initialContent={content}
+                blogTitle={title}
+                platform={sharePlatform}
+            />
 
             <style jsx global>{`
                 .ck-editor__main {

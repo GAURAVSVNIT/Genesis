@@ -834,6 +834,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             onSave={handleSaveEdit}
                             onClose={handleCloseSidebar}
                             title={`Blog Editor - ${new Date(currentEditingMessage.timestamp).toLocaleString()}`}
+                            userId={userId}
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400">

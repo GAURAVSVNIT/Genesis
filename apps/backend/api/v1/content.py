@@ -15,7 +15,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 import re
 
 from graph.content_agent import create_agent
@@ -40,18 +40,31 @@ from database.models.conversation import Conversation, Message
 
 def get_db():
     """Get database session."""
+    db = None
     try:
-        db = SessionLocal()
-        yield db
+        if SessionLocal:
+             db = SessionLocal()
     except Exception as e:
         print(f"Database connection error: {e}")
-        yield None
+        # db remains None
+    
+    try:
+        yield db
     finally:
         try:
             if db:
                 db.close()
         except:
             pass
+
+def safe_debug_log(message: str, filename: str = "debug_redis.log"):
+    """Safely write debug logs without crashing on file errors."""
+    try:
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(message)
+    except Exception:
+        # Silently fail - debug logging shouldn't crash the API
+        pass
 
 
 # ========== SEO OPTIMIZATION ==========
@@ -294,32 +307,25 @@ async def generate_content(
 ):
     """
     Generate content using Vertex AI and LangGraph.
-    
-    Complete workflow:
-    1. Rate limit check
-    2. Prompt hash and uniqueness check
-    3. Check prompt_cache for exact matches
-    4. If hit: return cached response
-    5. If miss: generate via Vertex AI
-    6. Store in conversation_cache + message_cache
-    7. Store in prompt_cache (deduplication)
-    8. Store in generated_content (main table)
-    9. Link in cache_content_mapping
-    10. Update usage_metrics + cache_metrics
-    
-    Args:
-        request: GenerateContentRequest
-        http_request: FastAPI Request
-        db: Database session
-        
-    Returns:
-        GenerateContentResponse with complete caching info
     """
+    import time
+    start_time = time.time()
+    
     import time
     start_time = time.time()
     
     try:
         # ========== INITIALIZATION ==========
+        # Check database connection first
+        if not db:
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection failed. Please try again later."
+            )
+        
+        user_metrics = None  # Initialize for all paths
+        elapsed_ms = 0
+        
         user_metrics = None  # Initialize for all paths
         elapsed_ms = 0
         
@@ -327,7 +333,7 @@ async def generate_content(
         relevant_image_url = None # Initialize variable
         # Use guestId if provided (guest user), otherwise guest identifier
         guest_id = request.guestId
-        with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[DEBUG] Initial guest_id from request: {guest_id}, prompt len: {len(request.prompt)}\n")
+        safe_debug_log(f"[DEBUG] Initial guest_id from request: {guest_id}, prompt len: {len(request.prompt)}\n")
         
         # Determine identifier for rate limiting
         if guest_id:
@@ -367,7 +373,9 @@ async def generate_content(
         cached_prompt = db.query(PromptCache)\
             .filter_by(prompt_hash=prompt_hash)\
             .first()
-        
+
+        # ... (keep existing cache hit logic) ...
+
         if cached_prompt:
             # ✅ CACHE HIT! Store in generated_content for tracking
             cached_prompt.hits += 1
@@ -612,7 +620,7 @@ async def generate_content(
                 print(f" Error flushing conversation_cache: {flush_error}")
                 # Fallback to just logging error but continuing if possible (or raise)
                 raise
-
+        
         # Add messages to message_cache (FOR ALL USERS)
         if True:  # Changed from checking user_id to allow all
             # Add user message to message_cache
@@ -661,17 +669,16 @@ async def generate_content(
         
         # ========== STEP 7.5: STORE IN REDIS (HOT CACHE FOR GUESTS) ==========
         # Store in Redis for guest sessions (consistent with api/v1/guest.py)
-        with open("debug_redis.log", "a", encoding="utf-8") as f:
-            f.write(f"\n[{datetime.utcnow().isoformat()}] Processing Request for Guest: {guest_id}\n")
+        safe_debug_log(f"\n[{datetime.utcnow().isoformat()}] Processing Request for Guest: {guest_id}\n")
             
         if guest_id:
             try:
                 redis = RedisManager.get_instance()
                 if not redis:
-                     with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[ERROR] RedisManager returned None!\n")
+                     safe_debug_log(f"[ERROR] RedisManager returned None!\n")
                 else:
                     key = f"guest:{guest_id}"
-                    with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[INFO] Using Redis Key: {key}\n")
+                    safe_debug_log(f"[INFO] Using Redis Key: {key}\n")
                     
                     # 1. Store User Prompt
                     user_msg_redis = {
@@ -680,7 +687,7 @@ async def generate_content(
                         "timestamp": datetime.utcnow().isoformat()
                     }
                     res1 = redis.rpush(key, json.dumps(user_msg_redis))
-                    with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[INFO] rpush user result: {res1}\n")
+                    safe_debug_log(f"[INFO] rpush user result: {res1}\n")
                     
                     # 2. Store AI Response
                     ai_msg_redis = {
@@ -689,18 +696,18 @@ async def generate_content(
                         "timestamp": datetime.utcnow().isoformat()
                     }
                     res2 = redis.rpush(key, json.dumps(ai_msg_redis))
-                    with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[INFO] rpush ai result: {res2}\n")
+                    safe_debug_log(f"[INFO] rpush ai result: {res2}\n")
                     
                     # Set expiration (24 hours)
                     redis.expire(key, 86400)
-                    with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[INFO] Expiration set\n")
+                    safe_debug_log(f"[INFO] Expiration set\n")
                 
             except Exception as e:
-                with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[ERROR] Exception: {str(e)}\n")
+                safe_debug_log(f"[ERROR] Exception: {str(e)}\n")
                 import traceback
-                with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(traceback.format_exc() + "\n")
+                safe_debug_log(traceback.format_exc() + "\n")
         else:
-             with open("debug_redis.log", "a", encoding="utf-8") as f: f.write(f"[WARN] No guest_id provided, skipping Redis cache\n")
+             safe_debug_log(f"[WARN] No guest_id provided, skipping Redis cache\n")
         
         # ========== STEP 8A: RUN ADVANCED SEO OPTIMIZATION ==========
         
@@ -1063,7 +1070,11 @@ async def generate_content(
         raise
     except Exception as e:
         import traceback
-        db.rollback()
+        if db:
+            try:
+                db.rollback()
+            except:
+                pass
         error_details = traceback.format_exc()
         print(f" Content generation error: {str(e)}")
         print(f"Traceback:\n{error_details}")

@@ -13,6 +13,7 @@ from database.models.cache import (
     CacheEmbedding,
     CacheMetrics,
 )
+from database.models.platform import UserPlatformConnection
 
 __all__ = [
     # Base
