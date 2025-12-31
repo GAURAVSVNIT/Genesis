@@ -151,8 +151,10 @@ def callback_linkedin(
         # Verify Token & Get Profile (This also validates the connection works)
         profile = publisher.get_linkedin_profile(access_token)
         
-        # Profile ID (URN)
-        urn = profile.get("id") or profile.get("sub") # 'sub' is used in OIDC/OAuth2 for new apps
+        # Profile ID (URN) - OIDC 'sub' is raw ID, need to construct proper URN
+        raw_id = profile.get("id") or profile.get("sub")
+        # LinkedIn UGC Posts API requires urn:li:person:{id} format
+        urn = f"urn:li:person:{raw_id}" if raw_id and not raw_id.startswith("urn:") else raw_id
         # Construct Name
         if "localizedFirstName" in profile:
             fname = profile.get("localizedFirstName", "")
@@ -190,7 +192,14 @@ def callback_linkedin(
         return {"status": "connected", "profile": full_name}
         
     except Exception as e:
-        print(f"OAuth Error: {e}")
+        print(f"\n[ERROR] OAuth Callback Failed!")
+        print(f"[ERROR] Code: {code}")
+        print(f"[ERROR] Redirect URI: {redirect_uri}")
+        print(f"[ERROR] Exception: {str(e)}")
+        # If it's a requests exception, try to print body
+        if hasattr(e, 'response') and e.response is not None:
+             print(f"[ERROR] Upstream Response: {e.response.text}")
+             
         raise HTTPException(status_code=400, detail=f"OAuth failed: {str(e)}")
 
 @router.get("/linkedin/targets")
@@ -213,8 +222,12 @@ def get_linkedin_targets(user_id: str, db: Session = Depends(get_db)):
     targets = []
     
     # 1. Add Self (Person) - Use stored details or fetch fresh
+    # Ensure URN is in proper format
+    user_urn = conn.platform_user_id
+    if user_urn and not user_urn.startswith("urn:"):
+        user_urn = f"urn:li:person:{user_urn}"
     targets.append({
-        "urn": conn.platform_user_id,
+        "urn": user_urn,
         "name": conn.profile_name or "Personal Profile",
         "type": "person", 
         "image": None # Could fetch profile picture if needed
@@ -327,7 +340,10 @@ def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get
     try:
         response = None
         if request.platform == "linkedin":
+            # Ensure URN is in proper format
             target_urn = request.target_urn or conn.platform_user_id
+            if target_urn and not target_urn.startswith("urn:"):
+                target_urn = f"urn:li:person:{target_urn}"
             response = publisher.publish_to_linkedin(
                 access_token=conn.access_token,
                 user_urn=target_urn,
@@ -347,5 +363,8 @@ def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get
         return {"status": "published", "platform_response": response}
         
     except Exception as e:
-        # If 401, maybe deactivate token? For now just error
+        # Log error for debugging
+        import traceback
+        print(f"SHARE ERROR: {str(e)}")
+        print(f"TRACEBACK: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -58,7 +58,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const [checkpoints, setCheckpoints] = useState<BlogCheckpoint[]>([])
     const [showCheckpoints, setShowCheckpoints] = useState(false)
     const [conversationId] = useState(() => crypto.randomUUID())
-    const [userId] = useState(() => isAuthenticated ? 'user' : 'guest')
+    const [userId] = useState(() => {
+        // For development: Use the seeded user ID
+        // In production, this would come from auth context
+        return '3540555e-1e14-4b98-b413-99cc7086fa48';
+    })
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const { generate, isLoading, error } = useGeneration(isAuthenticated)

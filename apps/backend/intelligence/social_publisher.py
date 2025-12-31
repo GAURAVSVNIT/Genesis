@@ -18,6 +18,7 @@ class SocialPublisher:
     def get_authorization_url(self, redirect_uri: str, state: str) -> str:
         """Generate the LinkedIn OAuth authorization URL."""
         if not self.client_id:
+            logger.error("LinkedIn Client ID is MISSING in settings!")
             raise Exception("LinkedIn Client ID not configured")
             
         params = {
@@ -25,8 +26,17 @@ class SocialPublisher:
             "client_id": self.client_id,
             "redirect_uri": redirect_uri,
             "state": state,
-            "scope": "w_member_social profile openid email w_organization_social r_organization_social" 
+            "scope": "w_member_social profile openid email" 
         }
+        
+        # DEBUG LOGGING
+        masked_id = f"{self.client_id[:4]}...{self.client_id[-4:]}" if self.client_id else "None"
+        print(f"\n[DEBUG] Generating LinkedIn Auth URL")
+        print(f"[DEBUG] Client ID: {masked_id}")
+        masked_secret = f"{self.client_secret[:4]}...{self.client_secret[-4:]}" if self.client_secret else "None"
+        print(f"[DEBUG] Client Secret: {masked_secret}")
+        print(f"[DEBUG] Redirect URI: '{redirect_uri}'")
+        print(f"[DEBUG] Scopes: '{params['scope']}'")
         
         # Manually construct to avoid encoding issues or use a library
         import urllib.parse
@@ -46,27 +56,67 @@ class SocialPublisher:
             "client_secret": self.client_secret
         }
         
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        # Headers - let requests set Content-Type from data dict for safety
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
         
-        response = requests.post(self.LINKEDIN_TOKEN_URL, data=payload, headers=headers)
+        # DEBUG LOGGING
+        print(f"\n[DEBUG] Exchanging LinkedIn Code for Token")
+        masked_id = f"{self.client_id[:4]}...{self.client_id[-4:]}" if self.client_id else "None"
+        print(f"[DEBUG] Client ID: {masked_id}")
+        print(f"[DEBUG] Redirect URI: '{redirect_uri}'")
+        print(f"[DEBUG] Code: {code[:10]}...")
+
+        # FORCE IPv4 WORKAROUND for ConnectionResetError(10054)
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+            
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            # Request with timeout and verify=False
+            response = requests.post(
+                self.LINKEDIN_TOKEN_URL, 
+                data=payload, 
+                headers=headers, 
+                verify=False,
+                timeout=30
+            )
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 200:
             return response.json()
         else:
+            print(f"[ERROR] Token Exchange Failed: {response.text}")
             raise Exception(f"Failed to exchange token: {response.text}")
         
     def get_linkedin_profile(self, access_token: str):
         """
-        Fetch basic profile info from LinkedIn to verify token and get URN.
-        Returns: { 'id': 'urn:li:person:...', 'localizedFirstName': ..., 'localizedLastName': ... }
+        Fetch basic profile info from LinkedIn using OIDC endpoint.
+        Returns dict with 'sub' (URN), 'name', 'picture', etc.
         """
-        url = f"{self.LINKEDIN_API_URL}/me"
+        # Endpoint for 'openid' scope
+        url = "https://api.linkedin.com/v2/userinfo"
         headers = {
-            "Authorization": f"Bearer {access_token}",
-            "X-Restli-Protocol-Version": "2.0.0"
+            "Authorization": f"Bearer {access_token}"
         }
         
-        response = requests.get(url, headers=headers)
+        # Apply IPv4 force + verify=False (Robustness)
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.get(url, headers=headers, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 200:
             return response.json()
@@ -83,7 +133,18 @@ class SocialPublisher:
             "X-Restli-Protocol-Version": "2.0.0"
         }
         
-        response = requests.get(url, headers=headers)
+        # Apply IPv4 workaround
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.get(url, headers=headers, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 200:
             data = response.json()
@@ -161,7 +222,18 @@ class SocialPublisher:
         auth = requests.auth.HTTPBasicAuth(self.twitter_client_id, self.twitter_client_secret)
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        response = requests.post(self.TWITTER_TOKEN_URL, data=data, headers=headers, auth=auth)
+        # Apply IPv4 workaround
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.post(self.TWITTER_TOKEN_URL, data=data, headers=headers, auth=auth, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 200:
             return response.json()
@@ -176,7 +248,18 @@ class SocialPublisher:
         # Request profile image and username
         params = {"user.fields": "profile_image_url,username"}
         
-        response = requests.get(url, headers=headers, params=params)
+        # Apply IPv4 workaround
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.get(url, headers=headers, params=params, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 200:
             return response.json().get("data")
@@ -191,9 +274,24 @@ class SocialPublisher:
             "Content-Type": "application/json" 
         }
         
+        # Twitter has 280 character limit - truncate if needed
+        if len(text) > 280:
+            text = text[:277] + '...'
+        
         payload = {"text": text}
         
-        response = requests.post(url, headers=headers, json=payload)
+        # Apply IPv4 workaround
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.post(url, headers=headers, json=payload, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 201:
             return response.json()
@@ -214,6 +312,10 @@ class SocialPublisher:
         Returns:
             dict: Response from LinkedIn API
         """
+        # LinkedIn has 3000 character limit - truncate if needed
+        if len(text) > 3000:
+            text = text[:2997] + '...'
+            
         post_url = f"{self.LINKEDIN_API_URL}/ugcPosts"
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -253,7 +355,18 @@ class SocialPublisher:
                 }
             ]
             
-        response = requests.post(post_url, headers=headers, json=payload)
+        # Apply IPv4 force + verify=False workaround
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            res = old_getaddrinfo(*args, **kwargs)
+            return [r for r in res if r[0] == socket.AF_INET]
+
+        try:
+            socket.getaddrinfo = new_getaddrinfo
+            response = requests.post(post_url, headers=headers, json=payload, verify=False, timeout=60)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
         
         if response.status_code == 201:
             return response.json()

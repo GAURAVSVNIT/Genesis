@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { socialApi, Connection } from '@/lib/api/social';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -35,9 +35,12 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
         setIsConnecting(true);
         try {
             // Get Auth URL from backend
+            // Use configured Redirect URI or fallback to current page
+            const redirectUri = process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || (window.location.origin + '/settings');
+
             const response = await socialApi.getLinkedInAuthUrl(
                 userId,
-                window.location.origin + '/settings' // Redirect back to settings
+                redirectUri
             );
 
             // Redirect to LinkedIn
@@ -49,15 +52,18 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
         }
     };
 
+    const processedCode = useRef<string | null>(null);
+
     // Handle OAuth Callback (Runs on mount if code is present)
     useEffect(() => {
         const query = new URLSearchParams(window.location.search);
         const code = query.get('code');
         const state = query.get('state');
 
-        // Only process if we have code/state AND we haven't already connected in this session
-        // (Though strict mode might cause double firing, the backend should handle it or we can debounce)
-        if (code && state) {
+        // Only process if we have code/state AND we haven't already processed THIS code
+        if (code && state && processedCode.current !== code) {
+            processedCode.current = code; // Mark as processed immediately
+
             const handleCallback = async () => {
                 setIsConnecting(true);
                 // toast.loading("Finalizing connection..."); 
@@ -65,7 +71,7 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
                     await socialApi.exchangeLinkedInCode(
                         code,
                         state,
-                        window.location.origin + '/settings'
+                        process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || (window.location.origin + '/settings')
                     );
                     toast.success("LinkedIn Connected!");
                     await loadConnections();
@@ -74,6 +80,7 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
                 } catch (error) {
                     console.error(error);
                     toast.error("Failed to complete connection");
+                    // If failed, allow retrying (optional, but code handles one-time use)
                 } finally {
                     setIsConnecting(false);
                 }
@@ -102,7 +109,7 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
 
     const isConnected = !!connection;
 
-    const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/settings` : '';
+    const redirectUri = process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI || (typeof window !== 'undefined' ? `${window.location.origin}/settings` : '');
 
     return (
         <Card className="w-full max-w-md bg-slate-900 border-slate-800">
