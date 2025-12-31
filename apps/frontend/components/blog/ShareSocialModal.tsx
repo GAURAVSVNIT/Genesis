@@ -44,6 +44,8 @@ export function ShareSocialModal({
     const [selectedTarget, setSelectedTarget] = useState<string>("");
     const [isLoadingTargets, setIsLoadingTargets] = useState(false);
 
+    const [targetsError, setTargetsError] = useState<string | null>(null);
+
     const isTwitter = platform === 'twitter';
     const maxLength = isTwitter ? 280 : 3000;
     const remainingChars = maxLength - content.length;
@@ -52,6 +54,7 @@ export function ShareSocialModal({
     useEffect(() => {
         if (isOpen && userId && platform === 'linkedin') {
             setIsLoadingTargets(true);
+            setTargetsError(null);
             socialApi.getLinkedInTargets(userId)
                 .then(data => {
                     setTargets(data);
@@ -64,16 +67,34 @@ export function ShareSocialModal({
                 })
                 .catch(err => {
                     console.error("Failed to fetch targets", err);
+                    setTargetsError("Failed to load accounts. Please check your LinkedIn connection.");
                 })
                 .finally(() => setIsLoadingTargets(false));
         }
     }, [isOpen, userId, platform]);
 
+
+    // Helper to convert HTML to plain text
+    const stripHtml = (html: string): string => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    };
+
     const handleShare = async () => {
         setIsLoading(true);
         setStatus('idle');
         try {
-            await socialApi.shareContent(userId, platform, content, blogUrl, blogTitle, selectedTarget);
+            // Strip HTML for social platforms (they expect plain text)
+            let plainTextContent = stripHtml(content);
+
+            // Truncate to platform limit (LinkedIn: 3000, Twitter: 280)
+            const limit = isTwitter ? 280 : 3000;
+            if (plainTextContent.length > limit) {
+                plainTextContent = plainTextContent.substring(0, limit - 3) + '...';
+            }
+
+            await socialApi.shareContent(userId, platform, plainTextContent, blogUrl, blogTitle, selectedTarget);
             // Note: `shareToLinkedIn` is a misnomer in API client if we misuse it, 
             // but the backend `share_content` endpoint handles generic platforms. 
             // We should ideally rename `shareToLinkedIn` to `shareContent` in client,
@@ -105,7 +126,7 @@ export function ShareSocialModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-xl z-50">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 capitalize">
                         {platform === 'linkedin' && <Linkedin className="w-5 h-5 text-[#0077b5]" />}
@@ -125,8 +146,23 @@ export function ShareSocialModal({
                         </div>
                     ) : (
                         <>
+                            {/* Loading State */}
+                            {isLoadingTargets && platform === 'linkedin' && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>Loading accounts...</span>
+                                </div>
+                            )}
+
+                            {/* Error State */}
+                            {targetsError && platform === 'linkedin' && (
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                                    {targetsError}
+                                </div>
+                            )}
+
                             {/* Target Selector (LinkedIn Only) */}
-                            {platform === 'linkedin' && targets.length > 0 && (
+                            {platform === 'linkedin' && targets.length > 0 && !isLoadingTargets && (
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium">Post As</label>
                                     <Select

@@ -91,6 +91,7 @@ export const socialApi = {
             const url = new URL(`${API_Base}/v1/social/login/linkedin`);
             url.searchParams.append('user_id', userId);
             url.searchParams.append('redirect_uri', redirectUri);
+            url.searchParams.append('_t', Date.now().toString()); // Cache buster
 
             const response = await fetch(url.toString(), {
                 method: 'GET',
@@ -124,7 +125,11 @@ export const socialApi = {
                 }
             });
 
-            if (!response.ok) throw new Error(`Status: ${response.status}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Backend Error Details:", errorText);
+                throw new Error(`Backend Error: ${errorText}`);
+            }
             return await response.json();
         } catch (error) {
             console.error("Failed to exchange LinkedIn code", error);
@@ -190,7 +195,11 @@ export const socialApi = {
                 })
             });
 
-            if (!response.ok) throw new Error(`Status: ${response.status}`);
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`Share API Error - Status: ${response.status}, Body:`, errorBody);
+                throw new Error(`Status: ${response.status} - ${errorBody}`);
+            }
             return await response.json();
         } catch (error) {
             console.error(`Failed to share to ${platform}`, error);
