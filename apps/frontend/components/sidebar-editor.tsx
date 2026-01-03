@@ -181,28 +181,28 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     } = cloud.CKEditor
 
     return (
-        <div className="flex flex-col h-full bg-slate-900 border-l border-slate-800">
+        <div className="flex flex-col h-full bg-gradient-to-br from-slate-900/50 to-slate-900/80 backdrop-blur-xl border-l border-white/5">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50">
-                <h3 className="font-semibold text-lg text-white">{title}</h3>
+            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 backdrop-blur-xl">
+                <h3 className="font-semibold text-lg text-white tracking-tight">{title}</h3>
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="h-8 w-8 p-0"
+                    className="h-8 w-8 p-0 hover:bg-white/10 text-slate-300 hover:text-white transition-all"
                 >
                     <X className="w-4 h-4" />
                 </Button>
             </div>
 
             {/* Toolbar Options */}
-            <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-800/50">
+            <div className="p-4 border-b border-white/5 space-y-3 bg-white/5 backdrop-blur-xl">
                 <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-2">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide block mb-2">
                         Image Position
                     </label>
                     <Select value={imagePosition} onValueChange={applyImagePosition}>
-                        <SelectTrigger className="h-8 text-xs bg-slate-800 border-slate-700 text-white">
+                        <SelectTrigger className="h-8 text-xs bg-slate-800/60 border-slate-700/50 hover:border-slate-600/50 text-white transition-all">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -216,7 +216,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-2">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide block mb-2">
                         Text Color
                     </label>
                     <div className="flex gap-2">
