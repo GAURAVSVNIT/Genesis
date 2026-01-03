@@ -462,21 +462,28 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     )
 
     return (
-        <div className="flex h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="flex h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse [animation-delay:2s]"></div>
+                <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-500/3 rounded-full blur-3xl animate-pulse [animation-delay:4s]"></div>
+            </div>
+            
             {/* Main Chat Area */}
             <div className={cn(
                 "flex flex-col flex-1 transition-all duration-300",
                 showEditorPanel ? "w-1/2" : "w-full"
             )}>
-                {/* Premium Header */}
-                <div className="sticky top-0 z-20 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl shadow-lg">
+                {/* Premium Header with Glass Morphism */}
+                <div className="sticky top-0 z-20 border-b border-white/5 bg-slate-900/40 backdrop-blur-2xl shadow-2xl">
                     <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
                         {/* Brand Section */}
                         <div className="flex items-center gap-4">
-                            <div className="relative w-10 h-10">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl blur opacity-75"></div>
-                                <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                                    <Bot className="w-6 h-6 text-white" />
+                            <div className="relative w-12 h-12 group">
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-cyan-500 to-blue-600 rounded-2xl blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
+                                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/20 group-hover:ring-blue-400/40 transition-all duration-300 group-hover:scale-105">
+                                    <Bot className="w-7 h-7 text-white drop-shadow-lg" />
                                 </div>
                             </div>
                             <div>
@@ -489,7 +496,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
                         {/* Controls Section */}
                         <div className="flex items-center gap-4">
-                            <div className="flex gap-2 bg-slate-800/50 rounded-lg p-1.5 border border-slate-700/50">
+                            <div className="flex gap-2 bg-white/5 backdrop-blur-xl rounded-xl p-1.5 border border-white/10">
                                 <Select value={tone} onValueChange={setTone}>
                                     <SelectTrigger className="w-[150px] bg-transparent border-0 text-sm text-white font-medium hover:bg-slate-700/30 focus:bg-slate-700/30">
                                         <SelectValue />
@@ -519,8 +526,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 size="sm"
                                 onClick={() => setShowCheckpoints(!showCheckpoints)}
                                 className={cn(
-                                    "text-slate-300 hover:text-white hover:bg-slate-700/50",
-                                    showCheckpoints && "bg-slate-700/50 text-white"
+                                    "h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm",
+                                    showCheckpoints && "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 ring-2 ring-blue-400/20"
                                 )}
                                 title="View checkpoints"
                             >
@@ -530,8 +537,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleCreateCheckpoint}
-                                disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite'); })()))}
-                                className="text-slate-300 hover:text-white hover:bg-slate-700/50 disabled:opacity-50"
+                                disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || m.type === 'modify' || msg.type === 'rewrite'); })()))}
+                                className="h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm disabled:opacity-50"
                                 title="Create checkpoint"
                             >
                                 <BookmarkPlus className="w-4 h-4" />
@@ -541,8 +548,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 size="sm"
                                 onClick={() => setShowEditorPanel(!showEditorPanel)}
                                 className={cn(
-                                    "text-slate-300 hover:text-white hover:bg-slate-700/50",
-                                    showEditorPanel && "bg-slate-700/50 text-white"
+                                    "h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm",
+                                    showEditorPanel && "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 ring-2 ring-blue-400/20"
                                 )}
                                 title={showEditorPanel ? "Hide editor" : "Show editor"}
                             >
@@ -604,10 +611,10 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             msg.role === 'user' ? "items-end" : "items-start"
                                         )}>
                                             <div className={cn(
-                                                "px-4 py-3 rounded-2xl transition-all duration-200",
-                                                msg.role === 'user'
-                                                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-none shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30"
-                                                    : "bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/50 hover:border-slate-700"
+                                            "px-5 py-3.5 rounded-2xl transition-all duration-200",
+                                            msg.role === 'user'
+                                                ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-[1.01]"
+                                                : "bg-slate-800/80 text-slate-100 rounded-bl-sm border border-slate-700/50 hover:border-slate-600/50 hover:bg-slate-800/90 backdrop-blur-sm"
                                             )}>
                                                 <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words">
                                                     {msg.content.includes('<') ? (
@@ -654,19 +661,19 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 ))}
 
                             {isLoading && (
-                                <div className="flex gap-4 group">
-                                    <Avatar className="w-9 h-9 mt-1 flex-shrink-0 border border-slate-700/50">
-                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center animate-pulse">
-                                            <Bot className="w-5 h-5 text-white" />
+                                <div className="flex gap-4 group animate-in fade-in-50 slide-in-from-bottom-3 duration-500">
+                                    <Avatar className="w-10 h-10 mt-1 flex-shrink-0 border-2 border-blue-400/50 shadow-lg shadow-blue-500/30">
+                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                                            <Bot className="w-5 h-5 text-white animate-pulse" />
                                         </div>
                                     </Avatar>
-                                    <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700/50">
+                                    <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm rounded-bl-sm">
                                         <div className="flex gap-1.5">
-                                            <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                            <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                            <div className="w-2.5 h-2.5 bg-slate-400/40 rounded-full animate-bounce"></div>
+                                            <div className="w-2.5 h-2.5 bg-blue-400/60 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                            <div className="w-2.5 h-2.5 bg-cyan-400/60 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                            <div className="w-2.5 h-2.5 bg-blue-400/60 rounded-full animate-bounce"></div>
                                         </div>
-                                        <span className="text-xs text-slate-400 ml-1">Generating response...</span>
+                                        <span className="text-xs text-slate-400 ml-1 font-medium">AI is thinking...</span>
                                     </div>
                                 </div>
                             )}
@@ -676,7 +683,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                 </div>
 
                 {/* Premium Input Footer */}
-                <div className="sticky bottom-0 border-t border-slate-800/50 bg-slate-900/80 backdrop-blur-xl shadow-2xl">
+                <div className="sticky bottom-0 border-t border-white/5 bg-slate-900/40 backdrop-blur-2xl shadow-2xl">
                     <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
                         {/* Error Display */}
                         {error && (
@@ -691,8 +698,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
                         {/* Input Box */}
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-cyan-500/0 group-focus-within:from-blue-500/10 group-focus-within:to-cyan-500/10 rounded-2xl blur transition-all duration-300"></div>
-                            <div className="relative flex gap-3 items-end bg-slate-800/50 border border-slate-700/50 group-focus-within:border-slate-700 rounded-2xl px-4 py-3 transition-all duration-300 hover:bg-slate-800/60">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/0 via-cyan-500/0 to-blue-500/0 group-focus-within:from-blue-500/20 group-focus-within:via-cyan-500/20 group-focus-within:to-blue-500/20 rounded-2xl blur-xl transition-all duration-500"></div>
+                            <div className="relative flex gap-3 items-end bg-slate-800/60 border border-slate-700/50 group-focus-within:border-blue-500/50 group-focus-within:bg-slate-800/80 rounded-2xl px-5 py-4 transition-all duration-300 hover:bg-slate-800/70 shadow-lg">
                                 <Textarea
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
@@ -759,11 +766,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
             {/* Right Sidebar - Editor or Checkpoints */}
             {showEditorPanel && (
-                <div className="w-1/2 border-l border-slate-800/50 bg-slate-900/50 flex flex-col">
+            <div className="w-1/2 border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-slate-900/80 backdrop-blur-xl flex flex-col">
                     {showCheckpoints ? (
                         // Checkpoints Panel
                         <div className="flex flex-col h-full">
-                            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50">
+                            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 backdrop-blur-xl">
                                 <h3 className="font-semibold text-lg text-white flex items-center gap-2">
                                     <Clock className="w-5 h-5" />
                                     Checkpoints
@@ -785,7 +792,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                         checkpoints.map((cp: any) => (
                                             <div
                                                 key={cp.id}
-                                                className="p-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all group"
+                                                className="p-4 rounded-xl bg-gradient-to-br from-slate-800/60 to-slate-800/30 border border-slate-700/50 hover:border-blue-500/30 transition-all group backdrop-blur-sm hover:shadow-lg hover:shadow-blue-500/10"
                                             >
                                                 <div className="flex items-start justify-between gap-2">
                                                     <div className="flex-1 min-w-0">
