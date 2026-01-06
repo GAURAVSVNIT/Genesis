@@ -12,13 +12,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
 
 interface SidebarEditorProps {
     initialData: string
@@ -31,9 +24,6 @@ interface SidebarEditorProps {
 export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId }: SidebarEditorProps) {
     const [content, setContent] = useState(initialData)
     const [isSaving, setIsSaving] = useState(false)
-    const [imagePosition, setImagePosition] = useState('inline')
-    const [textColor, setTextColor] = useState('black')
-    const [backgroundColor, setBackgroundColor] = useState('white')
     const [isDirty, setIsDirty] = useState(false)
     const [editor, setEditor] = useState<any>(null)
 
@@ -79,57 +69,6 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     const handleReset = () => {
         setContent(initialData)
         setIsDirty(false)
-    }
-
-    const applyTextColor = (color: string) => {
-        if (editor) {
-            setTextColor(color)
-            // Map color names to hex values
-            const colorMap: Record<string, string> = {
-                'black': '#000000',
-                'slate-700': '#374151',
-                'blue-600': '#2563eb',
-                'red-600': '#dc2626',
-                'green-600': '#16a34a',
-                'purple-600': '#7c3aed'
-            }
-            const hexColor = colorMap[color] || color
-            editor.execute('fontColor', { value: hexColor })
-        }
-    }
-
-    const applyBackgroundColor = (color: string) => {
-        if (editor) {
-            setBackgroundColor(color)
-            // Map color names to hex values
-            const colorMap: Record<string, string> = {
-                'white': '#ffffff',
-                'slate-100': '#f3f4f6',
-                'blue-50': '#eff6ff',
-                'yellow-50': '#fffbeb',
-                'green-50': '#f0fdf4',
-                'purple-50': '#faf5ff'
-            }
-            const hexColor = colorMap[color] || color
-            editor.execute('fontBackgroundColor', { value: hexColor })
-        }
-    }
-
-    const applyImagePosition = (position: string) => {
-        if (editor) {
-            setImagePosition(position)
-            const imageCommand: Record<string, string> = {
-                'inline': 'imageStyle:full',
-                'left': 'imageStyle:alignLeft',
-                'center': 'imageStyle:alignCenter',
-                'right': 'imageStyle:alignRight',
-                'full': 'imageStyle:full'
-            }
-            const command = imageCommand[position]
-            if (command && editor.commands.get(command)) {
-                editor.execute(command)
-            }
-        }
     }
 
     if (cloud.status === 'error') {
@@ -210,61 +149,6 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                 >
                     <X className="w-4 h-4" />
                 </Button>
-            </div>
-
-            {/* Toolbar Options */}
-            <div className="p-4 border-b border-border/50 space-y-4 bg-background/50 backdrop-blur-sm">
-                <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2 pl-1">
-                        Image Position
-                    </label>
-                    <Select value={imagePosition} onValueChange={applyImagePosition}>
-                        <SelectTrigger className="h-9 text-xs bg-secondary/30 border border-border/50 text-foreground hover:bg-secondary/50 focus:ring-0 rounded-lg">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="backdrop-blur-xl bg-popover/90 border-border/50">
-                            <SelectItem value="inline">Inline</SelectItem>
-                            <SelectItem value="left">Left Align</SelectItem>
-                            <SelectItem value="center">Center</SelectItem>
-                            <SelectItem value="right">Right Align</SelectItem>
-                            <SelectItem value="full">Full Width</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
-                        Text Color
-                    </label>
-                    <div className="flex gap-2">
-                        {['black', 'slate-700', 'blue-600', 'red-600', 'green-600', 'purple-600'].map(color => (
-                            <button
-                                key={color}
-                                className={`w-6 h-6 rounded border-2 transition-all ${textColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
-                                    } bg-${color === 'black' ? 'black' : color}`}
-                                onClick={() => applyTextColor(color)}
-                                title={color}
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                <div>
-                    <label className="text-xs font-semibold text-muted-foreground block mb-2">
-                        Background Color
-                    </label>
-                    <div className="flex gap-2">
-                        {['white', 'slate-100', 'blue-50', 'yellow-50', 'green-50', 'purple-50'].map(color => (
-                            <button
-                                key={color}
-                                className={`w-6 h-6 rounded border-2 transition-all ${backgroundColor === color ? 'border-slate-100 scale-110' : 'border-slate-600'
-                                    } bg-${color}`}
-                                onClick={() => applyBackgroundColor(color)}
-                                title={color}
-                            />
-                        ))}
-                    </div>
-                </div>
             </div>
 
             {/* Editor */}
@@ -406,14 +290,13 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                                 ]
                             }
                         }}
+                        onReady={(editorInstance) => {
+                            setEditor(editorInstance)
+                        }}
                         onChange={(event, editorInstance) => {
                             const data = editorInstance.getData()
                             setContent(data)
                             setIsDirty(true)
-                            // Store editor reference for applying colors and styles
-                            if (!editor) {
-                                setEditor(editorInstance)
-                            }
                         }}
                     />
                 </div>
@@ -482,12 +365,12 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
 
                 .ck.ck-editor__editable {
                     background-color: transparent !important;
-                    color: var(--foreground) !important;
+                    color: var(--foreground);
                 }
 
                 .ck.ck-content {
                     background-color: transparent !important;
-                    color: var(--foreground) !important;
+                    color: var(--foreground);
                 }
 
                 .ck-editor__top,
@@ -538,7 +421,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                 }
 
                 .ck-editor__editable p {
-                    color: var(--foreground) !important;
+                    color: var(--foreground);
                 }
 
                 .ck-editor__editable a {
@@ -547,7 +430,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
 
                 .ck-editor__editable blockquote {
                     border-left-color: var(--primary) !important;
-                    color: var(--muted-foreground) !important;
+                    color: var(--muted-foreground);
                     background-color: var(--card) !important;
                     padding: 0.5rem 1rem;
                 }
