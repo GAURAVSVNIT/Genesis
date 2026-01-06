@@ -57,64 +57,70 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
             {showAuthGate && <AuthGate feature={mode as 'image' | 'video'} />}
 
             {/* Hero Section */}
-            <div className="text-center space-y-4 mb-12">
+            <div className="text-center space-y-4 mb-12 animate-in fade-in-50 slide-in-from-bottom-5 duration-700">
                 <div className="flex justify-center mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
-                        <span className="text-3xl">✨</span>
+                    <div className="relative">
+                        <div className="w-20 h-20 bg-background/50 border border-primary/20 flex items-center justify-center rounded-3xl shadow-2xl shadow-primary/20 backdrop-blur-xl">
+                            <span className="text-4xl animate-pulse">✨</span>
+                        </div>
+                        <div className="absolute -inset-4 bg-primary/20 rounded-[40px] blur-3xl -z-10"></div>
                     </div>
                 </div>
-                <h1 className="text-5xl md:text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/70">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-blue-200">
                     Create Content with AI
                 </h1>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                <p className="text-xl text-muted-foreground/80 max-w-2xl mx-auto font-light leading-relaxed">
                     Harness the power of multi-agent AI to generate blogs, images, and videos instantly
                 </p>
             </div>
 
-            <div className="max-w-4xl mx-auto space-y-6">
-                <Card className="p-8 space-y-8 border-border/50 shadow-lg backdrop-blur-sm bg-card/50">
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in-50 slide-in-from-bottom-6 duration-1000 delay-100">
+                <Card className="p-8 space-y-8 border-border/50 shadow-2xl shadow-primary/5 bg-background/40 backdrop-blur-xl rounded-3xl">
                     {/* Mode Selector */}
                     <div className="space-y-4">
-                        <Label className="text-base font-semibold">Content Type</Label>
-                        <div className="grid grid-cols-3 gap-3">
+                        <Label className="text-base font-medium text-muted-foreground ml-1">Content Type</Label>
+                        <div className="grid grid-cols-3 gap-4">
                             <Button
                                 variant={mode === 'text' ? 'default' : 'outline'}
                                 onClick={() => handleModeChange('text')}
-                                className="h-12 text-base"
+                                className={`h-14 text-base rounded-2xl transition-all duration-300 ${mode === 'text' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'bg-secondary/50 border-transparent hover:bg-secondary/80'}`}
                             >
                                 📝 Text
                             </Button>
                             <Button
                                 variant={mode === 'image' ? 'default' : 'outline'}
                                 onClick={() => handleModeChange('image')}
-                                className="h-12 text-base"
+                                className={`h-14 text-base rounded-2xl transition-all duration-300 ${mode === 'image' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'bg-secondary/50 border-transparent hover:bg-secondary/80'}`}
                             >
-                                🖼️ Image {!isAuthenticated && '🔒'}
+                                🖼️ Image {!isAuthenticated && <span className="ml-2 text-xs opacity-70">🔒</span>}
                             </Button>
                             <Button
                                 variant={mode === 'video' ? 'default' : 'outline'}
                                 onClick={() => handleModeChange('video')}
-                                className="h-12 text-base"
+                                className={`h-14 text-base rounded-2xl transition-all duration-300 ${mode === 'video' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'bg-secondary/50 border-transparent hover:bg-secondary/80'}`}
                             >
-                                🎬 Video {!isAuthenticated && '🔒'}
+                                🎬 Video {!isAuthenticated && <span className="ml-2 text-xs opacity-70">🔒</span>}
                             </Button>
                         </div>
                     </div>
 
                     {/* Prompt Input */}
                     <div className="space-y-3">
-                        <Label htmlFor="prompt" className="text-base font-semibold">
+                        <Label htmlFor="prompt" className="text-base font-medium text-muted-foreground ml-1">
                             Your Creative Brief
                         </Label>
-                        <Textarea
-                            id="prompt"
-                            placeholder="Describe what you want to create. Be as detailed as you'd like..."
-                            value={prompt}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
-                            rows={6}
-                            className="resize-none rounded-xl text-base border-border/50 focus:border-primary focus:ring-primary/20"
-                        />
-                        <p className="text-xs text-muted-foreground">💡 Tip: More details = better results</p>
+                        <div className="relative group">
+                            <Textarea
+                                id="prompt"
+                                placeholder="Describe what you want to create. Be as detailed as you'd like..."
+                                value={prompt}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
+                                rows={6}
+                                className="resize-none rounded-2xl text-base border-border/50 bg-secondary/20 focus:bg-secondary/40 focus:border-primary/50 focus:ring-0 shadow-inner transition-all p-4"
+                            />
+                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-focus-within:opacity-100 pointer-events-none transition-opacity duration-500"></div>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-1">💡 Tip: More details = better results</p>
                     </div>
 
                     {/* Text Mode Options */}
@@ -159,12 +165,12 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
                     <Button
                         onClick={handleGenerate}
                         disabled={isLoading || !prompt.trim() || hasReachedLimit}
-                        className="w-full h-12 text-base font-semibold"
+                        className="w-full h-14 text-lg font-bold tracking-wide rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-300 border-none"
                         size="lg"
                     >
                         {isLoading ? (
                             <>
-                                <span className="animate-spin mr-2">⏳</span>
+                                <span className="animate-spin mr-3">⏳</span>
                                 Generating your content...
                             </>
                         ) : (
@@ -191,7 +197,7 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
                                 </div>
                             ) : (
                                 <p className="text-sm text-muted-foreground">
-                                    💡 {remainingGenerations}/5 free generations • 
+                                    💡 {remainingGenerations}/5 free generations •
                                     <Link href="/auth/sign-up" className="text-primary font-semibold hover:underline ml-1">
                                         Sign in for unlimited
                                     </Link>

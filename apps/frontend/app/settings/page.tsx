@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LinkedInConnection } from '@/components/settings/LinkedInConnection';
+import { TwitterConnection } from '@/components/settings/TwitterConnection';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
@@ -75,7 +76,7 @@ export default function SettingsPage() {
                         </h2>
                         <div className="grid gap-6 md:grid-cols-2">
                             <LinkedInConnection userId={userId} />
-                            {/* TwitterConnection could be added here too */}
+                            <TwitterConnection userId={userId} />
                         </div>
                     </section>
                 </div>

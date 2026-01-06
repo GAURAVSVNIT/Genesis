@@ -33,9 +33,9 @@ export function Navigation() {
 
     if (loading) {
         return (
-            <nav className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl">
+            <nav className="sticky top-0 z-50 border-b-2 border-border bg-background">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    <Link href="/" className="text-xl font-bold bg-gradient-to-r from-primary via-blue-400 to-cyan-400 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
                         Genesis
                     </Link>
                     <div className="flex items-center gap-4">
@@ -47,9 +47,9 @@ export function Navigation() {
     }
 
     return (
-        <nav className="sticky top-0 z-50 border-b border-slate-800/50 bg-slate-900/80 backdrop-blur-xl shadow-lg">
+        <nav className="sticky top-0 z-50 border-b-2 border-border bg-background shadow-none">
             <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                <Link href="/" className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                <Link href="/" className="text-xl font-bold bg-gradient-to-r from-primary via-blue-400 to-cyan-400 bg-clip-text text-transparent hover:opacity-90 transition-opacity uppercase tracking-wider">
                     Genesis
                 </Link>
 
@@ -60,12 +60,12 @@ export function Navigation() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setIsSettingsOpen(true)}
-                                className="text-slate-300 hover:text-white hover:bg-slate-800"
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted border-2 border-transparent hover:border-border rounded-none transition-all duration-300"
                                 title="Settings"
                             >
                                 <Settings className="w-5 h-5" />
                             </Button>
-                            <span className="text-sm text-slate-300 hidden sm:inline">{user.email}</span>
+                            <span className="text-sm text-muted-foreground hidden sm:inline font-bold">{user.email}</span>
                             <LogoutButton />
 
                             <SettingsModal
@@ -78,13 +78,13 @@ export function Navigation() {
                         <>
                             <Link
                                 href="/auth/login"
-                                className="text-sm font-medium text-slate-300 hover:text-blue-400 transition-colors duration-200"
+                                className="text-sm font-bold uppercase text-muted-foreground hover:text-primary transition-colors duration-200"
                             >
                                 Sign In
                             </Link>
                             <Link
                                 href="/auth/sign-up"
-                                className="text-sm font-medium bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                                className="text-sm font-bold uppercase bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-200"
                             >
                                 Sign Up
                             </Link>

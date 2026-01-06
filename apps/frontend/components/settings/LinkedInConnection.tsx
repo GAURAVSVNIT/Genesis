@@ -166,12 +166,6 @@ export function LinkedInConnection({ userId }: LinkedInConnectionProps) {
                             <p className="text-xs text-slate-500">
                                 You will be redirected to LinkedIn to approve access.
                             </p>
-                            {redirectUri && (
-                                <div className="p-2 bg-slate-950 rounded border border-slate-800 text-[10px] text-slate-400 break-all">
-                                    <p className="font-medium mb-1 text-slate-300">Requires Redirect URI in LinkedIn Portal:</p>
-                                    <code className="bg-black/50 px-1 py-0.5 rounded select-all">{redirectUri}</code>
-                                </div>
-                            )}
                         </div>
                     </div>
                 )}

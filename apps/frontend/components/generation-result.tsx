@@ -65,22 +65,22 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
 
     if (isLoading) {
         return (
-            <Card className="border-border/50 bg-card/50">
+            <Card className="border border-border/50 bg-card/60 backdrop-blur-sm rounded-2xl shadow-lg">
                 <CardContent className="pt-12">
                     <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-4">
-                            <div className="relative w-12 h-12">
-                                <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-primary/0 rounded-full animate-pulse" />
-                                <div className="absolute inset-1 bg-gradient-to-r from-primary/50 to-primary/10 rounded-full animate-spin" />
+                            <div className="relative w-12 h-12 bg-background/50 border border-primary/20 flex items-center justify-center animate-spin rounded-xl shadow-lg shadow-primary/20 backdrop-blur-md">
+                                <div className="w-4 h-4 bg-primary rounded-sm" />
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-medium text-foreground">Generating your content...</p>
-                                <p className="text-xs text-muted-foreground mt-1">This may take a few moments</p>
+                                <p className="text-sm font-medium text-foreground tracking-wide">GENERATING CONTENT...</p>
+                                <p className="text-xs text-muted-foreground mt-1 font-mono uppercase tracking-widest opacity-70">Please wait</p>
                             </div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
+        )
         )
     }
 
@@ -90,46 +90,46 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
         <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
             {/* Metrics Summary */}
             {metrics && (
-                <Card className="border-border/50 bg-gradient-to-br from-card via-card to-muted/30">
+                <Card className="border border-border/50 bg-card/40 backdrop-blur-md rounded-2xl shadow-xl">
                     <CardContent className="pt-6">
-                        <h3 className="text-sm font-semibold mb-4 text-foreground">Quality Metrics</h3>
+                        <h3 className="text-xs font-semibold mb-4 text-muted-foreground uppercase tracking-widest pl-1">Quality Metrics</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Quality Scores */}
                             {metrics.seo_score !== undefined && (
-                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
-                                    <p className="text-xs text-muted-foreground mb-1">SEO Score</p>
+                                <div className="p-3 bg-background/50 border border-border/50 rounded-xl shadow-sm backdrop-blur-sm">
+                                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">SEO Score</p>
                                     <p className={`text-2xl font-bold ${getScoreColor(metrics.seo_score)}`}>
                                         {formatScore(metrics.seo_score)}%
                                     </p>
                                 </div>
                             )}
                             {metrics.uniqueness_score !== undefined && (
-                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
-                                    <p className="text-xs text-muted-foreground mb-1">Uniqueness</p>
+                                <div className="p-3 bg-background/50 border border-border/50 rounded-xl shadow-sm backdrop-blur-sm">
+                                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Uniqueness</p>
                                     <p className={`text-2xl font-bold ${getScoreColor(metrics.uniqueness_score)}`}>
                                         {formatScore(metrics.uniqueness_score)}%
                                     </p>
                                 </div>
                             )}
                             {metrics.engagement_score !== undefined && (
-                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
-                                    <p className="text-xs text-muted-foreground mb-1">Engagement</p>
+                                <div className="p-3 bg-background/50 border border-border/50 rounded-xl shadow-sm backdrop-blur-sm">
+                                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Engagement</p>
                                     <p className={`text-2xl font-bold ${getScoreColor(metrics.engagement_score)}`}>
                                         {formatScore(metrics.engagement_score)}%
                                     </p>
                                 </div>
                             )}
                             {metrics.cost_usd !== undefined && (
-                                <div className="p-3 rounded-lg bg-background/50 border border-border/50">
-                                    <p className="text-xs text-muted-foreground mb-1">Generation Cost</p>
+                                <div className="p-3 bg-background/50 border border-border/50 rounded-xl shadow-sm backdrop-blur-sm">
+                                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Generation Cost</p>
                                     <p className="text-2xl font-bold text-primary">
                                         ${metrics.cost_usd.toFixed(4)}
                                     </p>
                                 </div>
                             )}
                         </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/50">
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-border/30">
                             {/* Cache & Performance */}
                             {metrics.cached !== undefined && (
                                 <div className="space-y-1">
@@ -164,25 +164,25 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
 
             {/* Rate Limiting Info */}
             {metrics && metrics.rate_limit_remaining !== undefined && (
-                <div className="text-xs text-muted-foreground text-center p-2 bg-muted/30 rounded-lg border border-border/50">
+                <div className="text-xs text-muted-foreground text-center p-2 bg-muted/30 rounded-lg border border-border/50 font-mono backdrop-blur-sm">
                     📊 {metrics.rate_limit_remaining} requests remaining • Resets in {metrics.rate_limit_reset_after}s
                 </div>
             )}
 
             {/* Content Card */}
-            <Card className="border-border/50 overflow-hidden">
-                <CardHeader className="border-b border-border/50 bg-muted/20">
+            <Card className="border border-border/50 overflow-hidden rounded-2xl shadow-xl bg-card/60 backdrop-blur-md">
+                <CardHeader className="border-b border-border/50 bg-secondary/30 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <CardTitle className="text-xl">Generated Content</CardTitle>
-                            <CardDescription>Ready to use and customize</CardDescription>
+                            <CardTitle className="text-xl font-medium tracking-tight">Generated Content</CardTitle>
+                            <CardDescription className="opacity-80">Ready to use and customize</CardDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button
                                 onClick={handleDownload}
                                 variant="outline"
                                 size="sm"
-                                className="gap-2"
+                                className="gap-2 rounded-lg hover:bg-white/10"
                                 title="Download as text file"
                             >
                                 <Download className="w-4 h-4" />
@@ -192,7 +192,7 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
                                 onClick={handleCopy}
                                 variant={copied ? "default" : "outline"}
                                 size="sm"
-                                className="gap-2"
+                                className={`gap-2 rounded-lg ${copied ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-white/10'}`}
                             >
                                 {copied ? (
                                     <>
