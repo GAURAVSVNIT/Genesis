@@ -77,6 +77,9 @@ class ImageCollector:
             print(f"[ImageCollector] Generation Error: {str(e)}")
             with open("debug_redis.log", "a", encoding="utf-8") as f:
                  f.write(f"[ImageCollector] Generation Error: {str(e)}\n")
+            # Re-raise as specific error
+            raise ValueError(f"Image generation failed: {str(e)}")
             
+        print("[ImageCollector] No images returned (likely blocked by safety filters)")
         return None
 

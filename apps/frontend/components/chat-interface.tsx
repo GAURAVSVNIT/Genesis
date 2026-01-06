@@ -719,7 +719,6 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             )}
 
                             {messages
-                                .filter(msg => !(msg.role === 'assistant' && (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite')))
                                 .map((msg) => (
                                     <div
                                         key={msg.id}
@@ -739,18 +738,73 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                     : "bg-secondary/40 text-card-foreground border-border/50 rounded-2xl rounded-tl-sm backdrop-blur-sm"
                                             )}>
                                                 <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words font-light">
-                                                    {msg.content.includes('<') ? (
-                                                        <div dangerouslySetInnerHTML={{ __html: msg.content }} />
-                                                    ) : (
-                                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                    {(msg.type !== 'blog' && msg.type !== 'modify' && msg.type !== 'rewrite') && (
+                                                        msg.content.includes('<') ? (
+                                                            <div dangerouslySetInnerHTML={{ __html: msg.content }} />
+                                                        ) : (
+                                                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                        )
                                                     )}
                                                     {msg.image_url && (
-                                                        <div className="mt-4 rounded-xl overflow-hidden border border-slate-700/50">
+                                                        <div className="mt-4 rounded-xl overflow-hidden border border-slate-700/50 relative group/image">
                                                             <img
                                                                 src={msg.image_url}
                                                                 alt="Generated visual"
                                                                 className="w-full h-auto object-cover max-h-[400px]"
                                                             />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="secondary"
+                                                                    className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg"
+                                                                    onClick={() => {
+                                                                        setSidebarEditingId(msg.id)
+                                                                        setShowEditorPanel(true)
+                                                                    }}
+                                                                >
+                                                                    <PanelRight className="w-4 h-4 mr-2" />
+                                                                    Insert into Blog
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="secondary"
+                                                                    className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg delay-75"
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            toast.info("Regenerating image...")
+                                                                            const response = await fetch('http://localhost:8000/v1/content/regenerate-image', {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({ content: msg.content })
+                                                                            })
+                                                                            const data = await response.json()
+                                                                            if (data.image_url) {
+                                                                                // Update local message state with new image
+                                                                                setMessages(prev => prev.map(m =>
+                                                                                    m.id === msg.id ? { ...m, image_url: data.image_url } : m
+                                                                                ))
+                                                                                toast.success("Image regenerated!")
+
+                                                                                // If this message is currently being edited, update the editor too
+                                                                                if (currentEditingMessage?.id === msg.id) {
+                                                                                    // Force update via sidebar props (it listens to message updates if we pass specific props, but right now it takes initialData)
+                                                                                    // Since SidebarEditor is open, we might need to close and reopen or pass the new URL dynamically.
+                                                                                    // The SidebarEditor receives `imageUrl` prop from `currentEditingMessage`.
+                                                                                    // So updating `setMessages` should propagate if `currentEditingMessage` is derived from `messages`.
+                                                                                    // Check how `currentEditingMessage` is defined.
+                                                                                }
+                                                                            } else {
+                                                                                toast.error("Failed to regenerate image")
+                                                                            }
+                                                                        } catch (e) {
+                                                                            toast.error("Error regenerating image")
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                                                    Regenerate
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -969,6 +1023,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 onClose={handleCloseSidebar}
                                 title={`Blog Editor - ${currentEditingMessage?.timestamp ? new Date(currentEditingMessage.timestamp).toLocaleString() : ''}`}
                                 userId={userId}
+                                imageUrl={currentEditingMessage?.image_url}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400">
