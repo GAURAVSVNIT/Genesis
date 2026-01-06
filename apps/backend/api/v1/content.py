@@ -811,14 +811,25 @@ async def generate_content(
         # So calling 'ImageCollector' here is correct for this imperative endpoint.
         
         # Fetch image based on primary keyword
-        if not relevant_image_url: # Only if not already fetched (e.g. by cache logic, though this is cache miss block)
-             image_search_query = keywords[0] if keywords else request.prompt[:20]
-             print(f"[Images] Fetching image for: {image_search_query}")
-             relevant_image_url = await image_collector.get_relevant_image(image_search_query)
-             if relevant_image_url:
-                 print(f" [Images] Found image: {relevant_image_url}")
-             else:
-                 print(f" [Images] No image found or API not configured.")
+        try:
+            if not relevant_image_url: # Only if not already fetched
+                 image_search_query = keywords[0] if keywords else request.prompt[:20]
+                 print(f"[Images] Fetching image for: {image_search_query}")
+                 relevant_image_url = await image_collector.get_relevant_image(image_search_query)
+                 
+                 # Retry with safer abstract prompt if failed
+                 if not relevant_image_url:
+                     print(f"[Images] Primary query failed. Retrying with abstract concept...")
+                     safe_query = f"Abstract representation of {image_search_query}"
+                     relevant_image_url = await image_collector.get_relevant_image(safe_query)
+
+                 if relevant_image_url:
+                     print(f" [Images] Found image: {relevant_image_url}")
+                 else:
+                     print(f" [Images] No image found or API not configured.")
+        except Exception as e:
+            print(f"[Content] Image generation failed gracefully: {e}")
+            relevant_image_url = None
         
 
         

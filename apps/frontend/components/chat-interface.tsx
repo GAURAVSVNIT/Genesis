@@ -65,6 +65,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const [classifyingIntent, setClassifyingIntent] = useState(false)
     const [checkpoints, setCheckpoints] = useState<BlogCheckpoint[]>([])
     const [showCheckpoints, setShowCheckpoints] = useState(false)
+    const [activeEditorImage, setActiveEditorImage] = useState<string | null>(null)
     const [conversationId] = useState(() => crypto.randomUUID())
     // Use the authenticated user ID if available, otherwise fallback (or handle appropriately)
     const userId = user?.id || 'guest-user-id';
@@ -738,7 +739,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                     : "bg-secondary/40 text-card-foreground border-border/50 rounded-2xl rounded-tl-sm backdrop-blur-sm"
                                             )}>
                                                 <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words font-light">
-                                                    {(msg.type !== 'blog' && msg.type !== 'modify' && msg.type !== 'rewrite') && (
+                                                    {(msg.role === 'user' || (msg.type !== 'blog' && msg.type !== 'modify' && msg.type !== 'rewrite')) && (
                                                         msg.content.includes('<') ? (
                                                             <div dangerouslySetInnerHTML={{ __html: msg.content }} />
                                                         ) : (
@@ -759,6 +760,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                                     className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg"
                                                                     onClick={() => {
                                                                         setSidebarEditingId(msg.id)
+                                                                        setActiveEditorImage(msg.image_url || null)
                                                                         setShowEditorPanel(true)
                                                                     }}
                                                                 >
@@ -1023,7 +1025,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 onClose={handleCloseSidebar}
                                 title={`Blog Editor - ${currentEditingMessage?.timestamp ? new Date(currentEditingMessage.timestamp).toLocaleString() : ''}`}
                                 userId={userId}
-                                imageUrl={currentEditingMessage?.image_url}
+                                imageUrl={activeEditorImage}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400">
