@@ -198,31 +198,31 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     } = cloud.CKEditor
 
     return (
-        <div className="flex flex-col h-full bg-gradient-to-br from-slate-900/50 to-slate-900/80 backdrop-blur-xl border-l border-white/5">
+        <div className="flex flex-col h-full bg-background/95 backdrop-blur-md border-l border-border/50 shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 backdrop-blur-xl">
-                <h3 className="font-semibold text-lg text-white tracking-tight">{title}</h3>
+            <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/50 backdrop-blur-sm">
+                <h3 className="font-medium text-lg text-foreground tracking-tight pl-2">{title}</h3>
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={onClose}
-                    className="h-8 w-8 p-0 hover:bg-white/10 text-slate-300 hover:text-white transition-all"
+                    className="h-8 w-8 p-0 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all rounded-lg"
                 >
                     <X className="w-4 h-4" />
                 </Button>
             </div>
 
             {/* Toolbar Options */}
-            <div className="p-4 border-b border-white/5 space-y-3 bg-white/5 backdrop-blur-xl">
+            <div className="p-4 border-b border-border/50 space-y-4 bg-background/50 backdrop-blur-sm">
                 <div>
-                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide block mb-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2 pl-1">
                         Image Position
                     </label>
                     <Select value={imagePosition} onValueChange={applyImagePosition}>
-                        <SelectTrigger className="h-8 text-xs bg-slate-800/60 border-slate-700/50 hover:border-slate-600/50 text-white transition-all">
+                        <SelectTrigger className="h-9 text-xs bg-secondary/30 border border-border/50 text-foreground hover:bg-secondary/50 focus:ring-0 rounded-lg">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="backdrop-blur-xl bg-popover/90 border-border/50">
                             <SelectItem value="inline">Inline</SelectItem>
                             <SelectItem value="left">Left Align</SelectItem>
                             <SelectItem value="center">Center</SelectItem>
@@ -233,7 +233,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide block mb-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
                         Text Color
                     </label>
                     <div className="flex gap-2">
@@ -250,7 +250,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                 </div>
 
                 <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-2">
+                    <label className="text-xs font-semibold text-muted-foreground block mb-2">
                         Background Color
                     </label>
                     <div className="flex gap-2">
@@ -268,12 +268,12 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
             </div>
 
             {/* Editor */}
-            <ScrollArea className="flex-1 overflow-auto bg-slate-800">
+            <div className="flex-1 overflow-y-auto bg-background custom-scrollbar">
                 <div
-                    className="p-4 ck-content text-slate-100"
+                    className="p-4 text-foreground min-h-full"
                     style={{
-                        color: '#e2e8f0',
-                        backgroundColor: '#1e293b'
+                        color: 'var(--foreground)',
+                        backgroundColor: 'transparent'
                     }}
                 >
                     <CKEditor
@@ -417,16 +417,16 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         }}
                     />
                 </div>
-            </ScrollArea>
+            </div>
 
             {/* Footer Actions */}
-            <div className="flex gap-2 p-4 border-t border-slate-800 bg-slate-800/50">
+            <div className="flex gap-2 p-4 border-t border-border/50 bg-background/50 backdrop-blur-sm">
                 <Button
                     onClick={handleReset}
                     variant="outline"
                     size="sm"
                     disabled={!isDirty || isSaving}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+                    className="flex-1 bg-transparent hover:bg-destructive/10 text-destructive/80 hover:text-destructive border border-destructive/30 hover:border-destructive/50 rounded-lg transition-all"
                 >
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Reset
@@ -437,18 +437,18 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         <Button
                             variant="secondary"
                             size="sm"
-                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white"
+                            className="flex-1 bg-secondary/50 hover:bg-secondary/80 text-secondary-foreground border border-transparent rounded-lg"
                         >
                             <Share2 className="w-4 h-4 mr-2" />
                             Share
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-slate-800 border-slate-700">
-                        <DropdownMenuItem onClick={() => openShareModal('linkedin')} className="text-slate-200 hover:bg-slate-700 cursor-pointer">
+                    <DropdownMenuContent className="bg-popover/90 border-border/50 backdrop-blur-xl">
+                        <DropdownMenuItem onClick={() => openShareModal('linkedin')} className="text-slate-200 hover:bg-white/10 cursor-pointer">
                             <Linkedin className="w-4 h-4 mr-2 text-[#0077b5]" />
                             Share to LinkedIn
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openShareModal('twitter')} className="text-slate-200 hover:bg-slate-700 cursor-pointer">
+                        <DropdownMenuItem onClick={() => openShareModal('twitter')} className="text-slate-200 hover:bg-white/10 cursor-pointer">
                             <Twitter className="w-4 h-4 mr-2 text-sky-500" />
                             Share to X (Twitter)
                         </DropdownMenuItem>
@@ -459,7 +459,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                     onClick={handleSave}
                     size="sm"
                     disabled={!isDirty || isSaving}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-primary/40 rounded-lg border border-white/10 transition-all font-medium"
                 >
                     <Save className="w-4 h-4 mr-2" />
                     {isSaving ? 'Saving...' : 'Save Changes'}
@@ -477,91 +477,144 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
 
             <style jsx global>{`
                 .ck-editor__main {
-                    background-color: #1e293b;
+                    background-color: transparent !important;
                 }
 
                 .ck.ck-editor__editable {
-                    background-color: #1e293b;
-                    color: #e2e8f0;
+                    background-color: transparent !important;
+                    color: var(--foreground) !important;
                 }
 
                 .ck.ck-content {
-                    background-color: #1e293b;
-                    color: #e2e8f0;
+                    background-color: transparent !important;
+                    color: var(--foreground) !important;
                 }
 
                 .ck-editor__top,
                 .ck-toolbar {
-                    background-color: #0f172a;
-                    border-bottom-color: #334155;
+                    background-color: hsl(var(--card)) !important;
+                    border-bottom-color: var(--border) !important;
+                    position: sticky !important;
+                    top: 0;
+                    z-index: 50 !important;
+                    overflow: visible !important;
+                }
+
+                .ck-toolbar__items {
+                    overflow: visible !important;
                 }
 
                 .ck-toolbar__separator {
-                    background-color: #334155;
+                    background-color: var(--border) !important;
                 }
 
                 .ck-button,
                 .ck.ck-button {
-                    background-color: #334155;
-                    color: #e2e8f0;
-                    border-color: #334155;
+                    background-color: transparent !important;
+                    color: var(--muted-foreground) !important;
+                    border-color: transparent !important;
                 }
 
                 .ck-button:hover:not(:disabled),
                 .ck.ck-button:hover:not(:disabled) {
-                    background-color: #475569;
-                    border-color: #475569;
+                    background-color: var(--accent) !important;
+                    color: var(--accent-foreground) !important;
+                }
+
+                .ck-button.ck-on,
+                .ck.ck-button.ck-on {
+                    background-color: var(--primary) !important;
+                    color: var(--primary-foreground) !important;
                 }
 
                 .ck-button:active,
                 .ck.ck-button:active {
-                    background-color: #1e293b;
+                    background-color: var(--primary) !important;
                 }
 
                 .ck.ck-editor__editable.ck-focused {
-                    border-color: #3b82f6;
+                    border-color: var(--primary) !important;
+                    box-shadow: 0 0 0 2px var(--ring) !important;
                 }
 
                 .ck-editor__editable p {
-                    color: #e2e8f0;
+                    color: var(--foreground) !important;
                 }
 
                 .ck-editor__editable a {
-                    color: #60a5fa;
+                    color: var(--primary) !important;
                 }
 
                 .ck-editor__editable blockquote {
-                    border-left-color: #3b82f6;
-                    color: #cbd5e1;
+                    border-left-color: var(--primary) !important;
+                    color: var(--muted-foreground) !important;
+                    background-color: var(--card) !important;
+                    padding: 0.5rem 1rem;
                 }
 
                 .ck-editor__editable code {
-                    background-color: #0f172a;
-                    color: #f87171;
+                    background-color: var(--muted) !important;
+                    color: var(--destructive) !important;
+                    padding: 0.125rem 0.25rem;
+                    border-radius: 0.25rem;
                 }
 
                 .ck-dropdown__panel,
-                .ck.ck-panel {
-                    background-color: #1e293b;
-                    border-color: #334155;
+                .ck.ck-panel,
+                .ck.ck-balloon-panel {
+                    background-color: var(--popover) !important;
+                    border-color: var(--border) !important;
+                    color: var(--foreground) !important;
+                    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5) !important;
+                    z-index: 99999 !important;
                 }
 
                 .ck-dropdown__panel-visible,
-                .ck.ck-panel.ck-panel_visible {
-                    background-color: #1e293b;
+                .ck.ck-panel.ck-panel_visible,
+                .ck.ck-balloon-panel.ck-balloon-panel_visible {
+                    background-color: var(--popover) !important;
                 }
 
-                .ck.ck-list__item {
-                    color: #e2e8f0;
+                .ck.ck-list__item,
+                .ck.ck-list__item .ck-button {
+                    background-color: transparent !important;
+                    color: var(--foreground) !important;
+                    width: 100%;
                 }
 
+                .ck.ck-list__item .ck-button .ck-button__label {
+                    color: var(--foreground) !important;
+                }
+
+                .ck.ck-list__item .ck-button:hover:not(.ck-disabled),
                 .ck.ck-list__item:hover:not(.ck-disabled) {
-                    background-color: #334155;
+                    background-color: var(--accent) !important;
+                    color: var(--accent-foreground) !important;
+                }
+
+                .ck.ck-list__item .ck-button:hover .ck-button__label {
+                    color: var(--accent-foreground) !important;
+                }
+
+                .ck.ck-list__item .ck-button.ck-on,
+                .ck.ck-list__item .ck-button.ck-on:hover:not(.ck-disabled) {
+                    background-color: var(--primary) !important;
+                    color: var(--primary-foreground) !important;
+                }
+
+                .ck.ck-list__item .ck-button.ck-on .ck-button__label {
+                    color: var(--primary-foreground) !important;
                 }
 
                 .ck-image-upload-complete-message {
-                    background-color: #1e293b;
-                    color: #e2e8f0;
+                    background-color: var(--card) !important;
+                    color: var(--card-foreground) !important;
+                }
+
+                /* Ensure portaled elements are on top */
+                .ck-body-wrapper {
+                    z-index: 99999 !important;
+                    position: absolute;
                 }
             `}</style>
         </div>

@@ -186,18 +186,28 @@ export function ShareSocialModal({
                             )}
 
                             <div className="space-y-2">
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <label className="text-sm font-medium">Post Content</label>
-                                    {isTwitter && (
+                                    <div className="flex items-center gap-2">
+                                        {remainingChars < 0 && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 bg-red-50/50"
+                                                onClick={() => setContent(content.substring(0, maxLength))}
+                                            >
+                                                Trim Content
+                                            </Button>
+                                        )}
                                         <span className={`text-xs ${remainingChars < 0 ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
                                             {remainingChars} chars left
                                         </span>
-                                    )}
+                                    </div>
                                 </div>
                                 <Textarea
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
-                                    className="min-h-[150px]"
+                                    className={`min-h-[150px] ${remainingChars < 0 ? 'border-red-200 focus-visible:ring-red-500' : ''}`}
                                     placeholder={isTwitter ? "What's happening?" : "What do you want to talk about?"}
                                 />
                             </div>

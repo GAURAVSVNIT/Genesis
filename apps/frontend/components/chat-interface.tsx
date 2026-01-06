@@ -22,6 +22,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { LogoutButton } from '@/components/logout-button'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { Settings as SettingsIcon } from 'lucide-react'
+import { SettingsModal } from '@/components/settings/SettingsModal'
 
 interface ChatInterfaceProps {
     isAuthenticated: boolean
@@ -48,24 +54,49 @@ type BlogCheckpoint = {
 }
 
 export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
+    const [user, setUser] = useState<SupabaseUser | null>(null)
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState('')
     const [tone, setTone] = useState('informative')
     const [length, setLength] = useState('medium')
     const [sidebarEditingId, setSidebarEditingId] = useState<string | null>(null)
-    const [showEditorPanel, setShowEditorPanel] = useState(true)
+    const [showEditorPanel, setShowEditorPanel] = useState(false)
     const [classifyingIntent, setClassifyingIntent] = useState(false)
     const [checkpoints, setCheckpoints] = useState<BlogCheckpoint[]>([])
     const [showCheckpoints, setShowCheckpoints] = useState(false)
     const [conversationId] = useState(() => crypto.randomUUID())
-    const [userId] = useState(() => {
-        // For development: Use the seeded user ID
-        // In production, this would come from auth context
-        return '3540555e-1e14-4b98-b413-99cc7086fa48';
-    })
+    // Use the authenticated user ID if available, otherwise fallback (or handle appropriately)
+    const userId = user?.id || 'guest-user-id';
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const { generate, isLoading, error } = useGeneration(isAuthenticated)
+
+    // Auto-open editor when content is generated
+    useEffect(() => {
+        const lastMsg = messages[messages.length - 1]
+        if (lastMsg?.role === 'assistant' &&
+            (lastMsg.type === 'blog' || lastMsg.type === 'modify' || lastMsg.type === 'rewrite')) {
+            setShowEditorPanel(true)
+            setSidebarEditingId(lastMsg.id)
+        }
+    }, [messages])
+
+    // Auth Effect
+    useEffect(() => {
+        const supabase = createClient()
+        // Get initial user
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user)
+        })
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
 
     // Load checkpoints when component mounts
     useEffect(() => {
@@ -466,134 +497,221 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     )
 
     return (
-        <div className="flex h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
+        <div className="flex h-screen w-full bg-background relative overflow-hidden">
             {/* Animated background elements */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse [animation-delay:2s]"></div>
-                <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-500/3 rounded-full blur-3xl animate-pulse [animation-delay:4s]"></div>
-            </div>
-            
+            {/* Solid Background - No Blobs */}
+            <div className="absolute inset-0 bg-background pointer-events-none"></div>
+
             {/* Main Chat Area */}
             <div className={cn(
                 "flex flex-col flex-1 transition-all duration-300",
                 showEditorPanel ? "w-1/2" : "w-full"
             )}>
                 {/* Premium Header with Glass Morphism */}
-                <div className="sticky top-0 z-20 border-b border-white/5 bg-slate-900/40 backdrop-blur-2xl shadow-2xl">
-                    <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+                {/* Modern Premium Header with Glass Morphism */}
+                <div className="sticky top-0 z-20 border-b border-border/40 bg-background/80 backdrop-blur-md shadow-sm">
+                    <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                         {/* Brand Section */}
                         <div className="flex items-center gap-4">
-                            <div className="relative w-12 h-12 group">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-cyan-500 to-blue-600 rounded-2xl blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
-                                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/20 group-hover:ring-blue-400/40 transition-all duration-300 group-hover:scale-105">
-                                    <Bot className="w-7 h-7 text-white drop-shadow-lg" />
-                                </div>
+                            <div className="relative w-10 h-10 bg-primary/10 flex items-center justify-center rounded-xl border border-primary/20 shadow-[0_0_15px_-3px_var(--primary)]">
+                                <Bot className="w-6 h-6 text-primary" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                                <h1 className="text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent tracking-tight">
                                     Genesis
                                 </h1>
-                                <p className="text-xs text-slate-400 font-medium">Advanced AI Content Generation</p>
                             </div>
                         </div>
 
                         {/* Controls Section */}
                         <div className="flex items-center gap-4">
-                            <div className="flex gap-2 bg-white/5 backdrop-blur-xl rounded-xl p-1.5 border border-white/10">
-                                <Select value={tone} onValueChange={setTone}>
-                                    <SelectTrigger className="w-[150px] bg-transparent border-0 text-sm text-white font-medium hover:bg-slate-700/30 focus:bg-slate-700/30">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-slate-800 border-slate-700">
-                                        <SelectItem value="informative"> Informative</SelectItem>
-                                        <SelectItem value="casual"> Casual</SelectItem>
-                                        <SelectItem value="professional">Professional</SelectItem>
-                                        <SelectItem value="creative">Creative</SelectItem>
-                                        <SelectItem value="humorous">Humorous</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <div className="w-px bg-slate-700/50"></div>
-                                <Select value={length} onValueChange={setLength}>
-                                    <SelectTrigger className="w-[130px] bg-transparent border-0 text-sm text-white font-medium hover:bg-slate-700/30 focus:bg-slate-700/30">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-slate-800 border-slate-700">
-                                        <SelectItem value="short">📝 Short</SelectItem>
-                                        <SelectItem value="medium">📄 Medium</SelectItem>
-                                        <SelectItem value="long">📚 Long</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowCheckpoints(!showCheckpoints)}
-                                className={cn(
-                                    "h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm",
-                                    showCheckpoints && "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 ring-2 ring-blue-400/20"
-                                )}
-                                title="View checkpoints"
-                            >
-                                <Clock className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleCreateCheckpoint}
-                                disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || m.type === 'modify' || msg.type === 'rewrite'); })()))}
-                                className="h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm disabled:opacity-50"
-                                title="Create checkpoint"
-                            >
-                                <BookmarkPlus className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowEditorPanel(!showEditorPanel)}
-                                className={cn(
-                                    "h-9 w-9 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all backdrop-blur-sm",
-                                    showEditorPanel && "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 ring-2 ring-blue-400/20"
-                                )}
-                                title={showEditorPanel ? "Hide editor" : "Show editor"}
-                            >
-                                <PanelRight className="w-4 h-4" />
-                            </Button>
+                            {/* Editor Controls - Only show if messages exist */}
+                            {messages.length > 0 && (
+                                <>
+                                    <div className="flex gap-1 bg-secondary/30 border border-border/50 p-1 shadow-inner rounded-lg hidden md:flex backdrop-blur-sm">
+                                        <Select value={tone} onValueChange={setTone}>
+                                            <SelectTrigger className="w-[130px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                <SelectItem value="informative">Informative</SelectItem>
+                                                <SelectItem value="casual">Casual</SelectItem>
+                                                <SelectItem value="professional">Professional</SelectItem>
+                                                <SelectItem value="creative">Creative</SelectItem>
+                                                <SelectItem value="humorous">Humorous</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="w-px bg-border/40 my-1"></div>
+                                        <Select value={length} onValueChange={setLength}>
+                                            <SelectTrigger className="w-[110px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                <SelectItem value="short">Short</SelectItem>
+                                                <SelectItem value="medium">Medium</SelectItem>
+                                                <SelectItem value="long">Long</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="w-px h-8 bg-border/40 mx-2"></div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowCheckpoints(!showCheckpoints)}
+                                        className={cn(
+                                            "h-9 w-9 p-0 rounded-lg transition-all hover:bg-secondary/50 text-muted-foreground hover:text-foreground",
+                                            showCheckpoints && "bg-primary/20 text-primary hover:bg-primary/30"
+                                        )}
+                                        title="View checkpoints"
+                                    >
+                                        <Clock className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleCreateCheckpoint}
+                                        disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite'); })()))}
+                                        className="h-9 w-9 p-0 rounded-lg transition-all hover:bg-secondary/50 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                                        title="Create checkpoint"
+                                    >
+                                        <BookmarkPlus className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowEditorPanel(!showEditorPanel)}
+                                        className={cn(
+                                            "h-9 w-9 p-0 rounded-lg transition-all hover:bg-secondary/50 text-muted-foreground hover:text-foreground",
+                                            showEditorPanel && "bg-primary/20 text-primary hover:bg-primary/30"
+                                        )}
+                                        title={showEditorPanel ? "Hide editor" : "Show editor"}
+                                    >
+                                        <PanelRight className="w-4 h-4" />
+                                    </Button>
+                                </>
+                            )}
+
+                            {/* User Controls */}
+                            {user ? (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setIsSettingsOpen(true)}
+                                        className="text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg transition-all duration-300"
+                                        title="Settings"
+                                    >
+                                        <SettingsIcon className="w-5 h-5" />
+                                    </Button>
+                                    <LogoutButton />
+
+                                    <SettingsModal
+                                        isOpen={isSettingsOpen}
+                                        onClose={() => setIsSettingsOpen(false)}
+                                        userId={user.id}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <Link
+                                        href="/auth/login"
+                                        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+                                    >
+                                        Sign In
+                                    </Link>
+                                    <Link
+                                        href="/auth/sign-up"
+                                        className="text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200"
+                                    >
+                                        Sign Up
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Messages Area - Professional Layout */}
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden relative">
                     <ScrollArea className="h-full w-full">
                         <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
                             {messages.length === 0 && (
-                                <div className="text-center py-32 space-y-8">
+                                <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in-50 slide-in-from-bottom-5 duration-500">
                                     <div className="flex justify-center">
                                         <div className="relative">
-                                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full blur-2xl"></div>
-                                            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-slate-700/50 flex items-center justify-center">
-                                                <Bot className="w-10 h-10 text-blue-400" />
+                                            <div className="relative w-20 h-20 bg-background/50 border border-border flex items-center justify-center rounded-3xl shadow-2xl shadow-primary/10 backdrop-blur-xl">
+                                                <Bot className="w-10 h-10 text-primary animate-pulse" />
                                             </div>
+                                            <div className="absolute -inset-4 bg-primary/20 rounded-[40px] blur-3xl -z-10 animate-pulse"></div>
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        <h3 className="text-2xl font-bold text-white">Welcome to Genesis</h3>
-                                        <p className="text-slate-400 max-w-md mx-auto leading-relaxed">
+                                    <div className="space-y-4 text-center">
+                                        <h3 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-blue-200 inline-block px-6 py-2">
+                                            Welcome to Genesis
+                                        </h3>
+                                        <p className="text-muted-foreground max-w-lg mx-auto leading-relaxed text-lg font-light">
                                             Powered by advanced AI agents, ready to generate professional content tailored to your needs.
                                         </p>
-                                        <div className="pt-4 grid grid-cols-3 gap-4 max-w-md mx-auto">
-                                            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                                                <p className="text-xs text-slate-400">Tone</p>
-                                                <p className="text-sm font-semibold text-white capitalize">{tone}</p>
+                                    </div>
+
+                                    {/* Centered Input Area for Empty State */}
+                                    <div className="w-full max-w-2xl mx-auto space-y-6">
+                                        <div className="relative group">
+                                            <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
+                                                <Textarea
+                                                    value={input}
+                                                    onChange={(e) => setInput(e.target.value)}
+                                                    placeholder="Ask anything about your blog, get writing tips, or request content creation..."
+                                                    className="flex-1 resize-none max-h-32 min-h-[80px] bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-base leading-relaxed"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault()
+                                                            handleSend()
+                                                        }
+                                                    }}
+                                                />
+                                                <Button
+                                                    onClick={handleSend}
+                                                    disabled={isLoading || !input.trim() || classifyingIntent}
+                                                    className="flex-shrink-0 h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center p-0"
+                                                >
+                                                    {isLoading ? (
+                                                        <div className="w-5 h-5 bg-white rounded-full animate-pulse"></div>
+                                                    ) : (
+                                                        <span className="text-xl">→</span>
+                                                    )}
+                                                </Button>
                                             </div>
-                                            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                                                <p className="text-xs text-slate-400">Length</p>
-                                                <p className="text-sm font-semibold text-white capitalize">{length}</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
+                                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Tone</p>
+                                                <Select value={tone} onValueChange={setTone}>
+                                                    <SelectTrigger className="w-[120px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                        <SelectItem value="informative">Informative</SelectItem>
+                                                        <SelectItem value="casual">Casual</SelectItem>
+                                                        <SelectItem value="professional">Professional</SelectItem>
+                                                        <SelectItem value="creative">Creative</SelectItem>
+                                                        <SelectItem value="humorous">Humorous</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
-                                            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                                                <p className="text-xs text-slate-400">Status</p>
-                                                <p className="text-sm font-semibold text-green-400">Ready</p>
+                                            <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
+                                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Length</p>
+                                                <Select value={length} onValueChange={setLength}>
+                                                    <SelectTrigger className="w-[100px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                        <SelectItem value="short">📝 Short</SelectItem>
+                                                        <SelectItem value="medium">📄 Medium</SelectItem>
+                                                        <SelectItem value="long">📚 Long</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                         </div>
                                     </div>
@@ -615,12 +733,12 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             msg.role === 'user' ? "items-end" : "items-start"
                                         )}>
                                             <div className={cn(
-                                            "px-5 py-3.5 rounded-2xl transition-all duration-200",
-                                            msg.role === 'user'
-                                                ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-sm shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 hover:scale-[1.01]"
-                                                : "bg-slate-800/80 text-slate-100 rounded-bl-sm border border-slate-700/50 hover:border-slate-600/50 hover:bg-slate-800/90 backdrop-blur-sm"
+                                                "px-6 py-4 border transition-all duration-200 shadow-sm",
+                                                msg.role === 'user'
+                                                    ? "bg-primary text-primary-foreground border-primary/20 rounded-2xl rounded-tr-sm"
+                                                    : "bg-secondary/40 text-card-foreground border-border/50 rounded-2xl rounded-tl-sm backdrop-blur-sm"
                                             )}>
-                                                <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words">
+                                                <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words font-light">
                                                     {msg.content.includes('<') ? (
                                                         <div dangerouslySetInnerHTML={{ __html: msg.content }} />
                                                     ) : (
@@ -643,21 +761,21 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                         </div>
 
                                         <Avatar className={cn(
-                                            "w-9 h-9 mt-1 flex-shrink-0 border",
+                                            "w-9 h-9 mt-1 flex-shrink-0 border border-white/10 shadow-lg",
                                             msg.role === 'user'
-                                                ? "bg-slate-700 border-slate-600"
-                                                : "bg-gradient-to-br from-blue-500 to-cyan-500 border-blue-400/50"
+                                                ? "bg-secondary"
+                                                : "bg-primary/20"
                                         )}>
                                             <div className={cn(
-                                                "w-full h-full rounded-full flex items-center justify-center",
+                                                "w-full h-full flex items-center justify-center rounded-full",
                                                 msg.role === 'user'
-                                                    ? "bg-slate-700"
-                                                    : "bg-gradient-to-br from-blue-500 to-cyan-500"
+                                                    ? "bg-secondary text-secondary-foreground"
+                                                    : "bg-primary/10 text-primary"
                                             )}>
                                                 {msg.role === 'user' ? (
-                                                    <User className="w-5 h-5 text-slate-300" />
+                                                    <User className="w-5 h-5" />
                                                 ) : (
-                                                    <Bot className="w-5 h-5 text-white" />
+                                                    <Bot className="w-5 h-5" />
                                                 )}
                                             </div>
                                         </Avatar>
@@ -686,175 +804,181 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                     </ScrollArea>
                 </div>
 
-                {/* Premium Input Footer */}
-                <div className="sticky bottom-0 border-t border-white/5 bg-slate-900/40 backdrop-blur-2xl shadow-2xl">
-                    <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
-                        {/* Error Display */}
-                        {error && (
-                            <div className="p-4 bg-red-900/20 border border-red-700/30 rounded-lg text-red-200 text-sm flex items-start gap-3 animate-in fade-in-50 duration-300">
-                                <span className="text-lg flex-shrink-0 mt-0.5">⚠️</span>
-                                <div>
-                                    <p className="font-medium">Error occurred</p>
-                                    <p className="text-red-300/80 text-xs mt-1">{error}</p>
+
+
+                {/* Neo-Brutalist Input Footer - ONLY SHOW IF MESSAGES EXIST */}
+                {messages.length > 0 && (
+                    <div className="sticky bottom-0 border-t-2 border-border bg-background shadow-none z-10">
+                        <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
+                            {/* Error Display */}
+                            {error && (
+                                <div className="p-4 bg-red-900/20 border border-red-700/30 rounded-lg text-red-200 text-sm flex items-start gap-3 animate-in fade-in-50 duration-300">
+                                    <span className="text-lg flex-shrink-0 mt-0.5">⚠️</span>
+                                    <div>
+                                        <p className="font-medium">Error occurred</p>
+                                        <p className="text-red-300/80 text-xs mt-1">{error}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Input Box */}
+                            <div className="relative group">
+                                <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
+                                    <Textarea
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        placeholder="Ask anything about your blog, get writing tips, or request content creation..."
+                                        className="flex-1 resize-none max-h-24 bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-sm leading-relaxed"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault()
+                                                handleSend()
+                                            }
+                                        }}
+                                    />
+                                    <Button
+                                        onClick={handleSend}
+                                        disabled={isLoading || !input.trim() || classifyingIntent}
+                                        className="flex-shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold uppercase text-xs border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 px-4 py-2"
+                                        size="sm"
+                                    >
+                                        {isLoading ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                Generating
+                                            </div>
+                                        ) : classifyingIntent ? (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                Analyzing
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <span>→</span>
+                                                Send
+                                            </div>
+                                        )}
+                                    </Button>
                                 </div>
                             </div>
-                        )}
 
-                        {/* Input Box */}
-                        <div className="relative group">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/0 via-cyan-500/0 to-blue-500/0 group-focus-within:from-blue-500/20 group-focus-within:via-cyan-500/20 group-focus-within:to-blue-500/20 rounded-2xl blur-xl transition-all duration-500"></div>
-                            <div className="relative flex gap-3 items-end bg-slate-800/60 border border-slate-700/50 group-focus-within:border-blue-500/50 group-focus-within:bg-slate-800/80 rounded-2xl px-5 py-4 transition-all duration-300 hover:bg-slate-800/70 shadow-lg">
-                                <Textarea
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    placeholder="Ask anything about your blog, get writing tips, or request content creation..."
-                                    className="flex-1 resize-none max-h-24 bg-transparent border-0 text-white placeholder-slate-500 focus:outline-none focus:ring-0 text-sm leading-relaxed"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault()
-                                            handleSend()
-                                        }
-                                    }}
-                                />
-                                <Button
-                                    onClick={handleSend}
-                                    disabled={isLoading || !input.trim() || classifyingIntent}
-                                    className="flex-shrink-0 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-700 disabled:to-slate-700 text-white font-medium text-sm shadow-lg hover:shadow-blue-500/50 transition-all duration-200 px-4 py-2"
-                                    size="sm"
-                                >
-                                    {isLoading ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                            Generating
-                                        </div>
-                                    ) : classifyingIntent ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                            Analyzing
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <span>→</span>
-                                            Send
-                                        </div>
-                                    )}
-                                </Button>
+                            {/* Helper Text */}
+                            <div className="flex items-center justify-between text-xs text-slate-400 px-2">
+                                <div className="flex items-center gap-3">
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-slate-600">⌨️</span>
+                                        Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Enter</span> to send
+                                    </span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="text-slate-600">⇧</span>
+                                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> for new line
+                                    </span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="text-slate-500">AI auto-detects intent (chat vs content)</span>
+                                </div>
+                                {messages.length > 0 && (
+                                    <span className="flex items-center gap-2 text-blue-400/70 font-medium">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500/60"></div>
+                                        {messages.filter(m => m.type === 'chat').length} chat | {messages.filter(m => m.type === 'blog').length} content
+                                    </span>
+                                )}
                             </div>
-                        </div>
-
-                        {/* Helper Text */}
-                        <div className="flex items-center justify-between text-xs text-slate-400 px-2">
-                            <div className="flex items-center gap-3">
-                                <span className="flex items-center gap-1">
-                                    <span className="text-slate-600">⌨️</span>
-                                    Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Enter</span> to send
-                                </span>
-                                <span className="text-slate-600">•</span>
-                                <span className="flex items-center gap-1">
-                                    <span className="text-slate-600">⇧</span>
-                                    <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> for new line
-                                </span>
-                                <span className="text-slate-600">•</span>
-                                <span className="text-slate-500">AI auto-detects intent (chat vs content)</span>
-                            </div>
-                            {messages.length > 0 && (
-                                <span className="flex items-center gap-2 text-blue-400/70 font-medium">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500/60"></div>
-                                    {messages.filter(m => m.type === 'chat').length} chat | {messages.filter(m => m.type === 'blog').length} content
-                                </span>
-                            )}
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
+
             {/* Right Sidebar - Editor or Checkpoints */}
-            {showEditorPanel && (
-            <div className="w-1/2 border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-slate-900/80 backdrop-blur-xl flex flex-col">
-                    {showCheckpoints ? (
-                        // Checkpoints Panel
-                        <div className="flex flex-col h-full">
-                            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 backdrop-blur-xl">
-                                <h3 className="font-semibold text-lg text-white flex items-center gap-2">
-                                    <Clock className="w-5 h-5" />
-                                    Checkpoints
-                                </h3>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowCheckpoints(false)}
-                                    className="h-8 w-8 p-0"
-                                >
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </div>
-                            <ScrollArea className="flex-1">
-                                <div className="p-4 space-y-2">
-                                    {checkpoints.length === 0 ? (
-                                        <p className="text-slate-400 text-sm text-center py-8">No checkpoints yet. Create one to save your progress.</p>
-                                    ) : (
-                                        checkpoints.map((cp: any) => (
-                                            <div
-                                                key={cp.id}
-                                                className="p-4 rounded-xl bg-gradient-to-br from-slate-800/60 to-slate-800/30 border border-slate-700/50 hover:border-blue-500/30 transition-all group backdrop-blur-sm hover:shadow-lg hover:shadow-blue-500/10"
-                                            >
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-medium text-white text-sm truncate">{cp.title}</p>
-                                                        <p className="text-xs text-slate-400">v{cp.version_number} • {new Date(cp.created_at).toLocaleDateString()}</p>
-                                                        {cp.description && (
-                                                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">{cp.description}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        {!cp.is_active && (
+            {
+                showEditorPanel && (
+                    <div className="w-1/2 border-l-2 border-border bg-background flex flex-col">
+                        {showCheckpoints ? (
+                            // Checkpoints Panel
+                            <div className="flex flex-col h-full">
+                                <div className="flex items-center justify-between p-4 border-b-2 border-border bg-card">
+                                    <h3 className="font-semibold text-lg text-foreground flex items-center gap-2">
+                                        <Clock className="w-5 h-5" />
+                                        Checkpoints
+                                    </h3>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowCheckpoints(false)}
+                                        className="h-8 w-8 p-0"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                <ScrollArea className="flex-1">
+                                    <div className="p-4 space-y-2">
+                                        {checkpoints.length === 0 ? (
+                                            <p className="text-slate-400 text-sm text-center py-8">No checkpoints yet. Create one to save your progress.</p>
+                                        ) : (
+                                            checkpoints.map((cp: any) => (
+                                                <div
+                                                    key={cp.id}
+                                                    className="p-4 bg-card border-2 border-border hover:border-primary transition-all group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-white text-sm truncate">{cp.title}</p>
+                                                            <p className="text-xs text-slate-400">v{cp.version_number} • {new Date(cp.created_at).toLocaleDateString()}</p>
+                                                            {cp.description && (
+                                                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{cp.description}</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {!cp.is_active && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleRestoreCheckpoint(cp.id)}
+                                                                    className="h-7 w-7 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-950"
+                                                                    title="Restore this version"
+                                                                >
+                                                                    <RefreshCw className="w-3 h-3" />
+                                                                </Button>
+                                                            )}
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => handleRestoreCheckpoint(cp.id)}
-                                                                className="h-7 w-7 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-950"
-                                                                title="Restore this version"
+                                                                onClick={() => handleDeleteCheckpoint(cp.id)}
+                                                                className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-950"
+                                                                title="Delete checkpoint"
                                                             >
-                                                                <RefreshCw className="w-3 h-3" />
+                                                                <Trash2 className="w-3 h-3" />
                                                             </Button>
-                                                        )}
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleDeleteCheckpoint(cp.id)}
-                                                            className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-950"
-                                                            title="Delete checkpoint"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </Button>
+                                                        </div>
                                                     </div>
+                                                    {cp.is_active && (
+                                                        <div className="mt-2 text-xs font-medium text-green-400">✓ Active</div>
+                                                    )}
                                                 </div>
-                                                {cp.is_active && (
-                                                    <div className="mt-2 text-xs font-medium text-green-400">✓ Active</div>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </ScrollArea>
-                        </div>
-                    ) : currentEditingMessage ? (
-                        // Editor Panel
-                        <SidebarEditor
-                            initialData={currentEditingMessage.content}
-                            onSave={handleSaveEdit}
-                            onClose={handleCloseSidebar}
-                            title={`Blog Editor - ${new Date(currentEditingMessage.timestamp).toLocaleString()}`}
-                            userId={userId}
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400">
-                            <PanelRight className="w-12 h-12 opacity-50" />
-                            <p className="text-center max-w-xs">Request content creation or use words like "write", "create", "generate" to populate the editor</p>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        ) : currentEditingMessage ? (
+                            // Editor Panel
+                            <SidebarEditor
+                                initialData={currentEditingMessage?.content || ''}
+                                onSave={handleSaveEdit}
+                                onClose={handleCloseSidebar}
+                                title={`Blog Editor - ${currentEditingMessage?.timestamp ? new Date(currentEditingMessage.timestamp).toLocaleString() : ''}`}
+                                userId={userId}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400">
+                                <PanelRight className="w-12 h-12 opacity-50" />
+                                <p className="text-center max-w-xs">Request content creation or use words like "write", "create", "generate" to populate the editor</p>
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+        </div >
     )
 }

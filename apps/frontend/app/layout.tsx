@@ -28,12 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <GuestSessionInit />
-        <Navigation />
+        <GuestSessionInit />
+        {/* Navigation removed - merged into ChatInterface */}
+        <GuestMigrationHandler />
         <GuestMigrationHandler />
         <SignupMigrationHandler />
         {children}

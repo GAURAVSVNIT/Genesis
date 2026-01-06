@@ -15,11 +15,11 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ initialData, onChange }) =>
     });
 
     if (cloud.status === 'error') {
-        return <div className="p-4 text-red-500">Error loading editor!</div>;
+        return <div className="p-4 text-destructive">Error loading editor!</div>;
     }
 
     if (cloud.status === 'loading') {
-        return <div className="p-4 text-slate-400">Loading editor...</div>;
+        return <div className="p-4 text-muted-foreground">Loading editor...</div>;
     }
 
     const {
@@ -37,7 +37,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ initialData, onChange }) =>
     } = cloud.CKEditor;
 
     return (
-        <div className="ck-content text-black">
+        <div className="ck-content text-foreground">
             <CKEditor
                 editor={ClassicEditor}
                 data={initialData}

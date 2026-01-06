@@ -1,6 +1,9 @@
 import requests
 import json
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class SocialPublisher:
     """Handles publishing content to external platforms."""
@@ -14,6 +17,8 @@ class SocialPublisher:
         from core.config import settings
         self.client_id = settings.LINKEDIN_CLIENT_ID
         self.client_secret = settings.LINKEDIN_CLIENT_SECRET
+        self.twitter_client_id = settings.TWITTER_CLIENT_ID
+        self.twitter_client_secret = settings.TWITTER_CLIENT_SECRET
         
     def get_authorization_url(self, redirect_uri: str, state: str) -> str:
         """Generate the LinkedIn OAuth authorization URL."""
@@ -173,11 +178,6 @@ class SocialPublisher:
         Note: `code_challenge` must be S256 of `code_verifier`.
         """
         if not self.twitter_client_id:
-             # Lazy load to avoid init errors if config missing
-             from core.config import settings
-             self.twitter_client_id = settings.TWITTER_CLIENT_ID
-             
-        if not self.twitter_client_id:
              raise Exception("Twitter Client ID not configured")
 
         import hashlib
@@ -203,10 +203,6 @@ class SocialPublisher:
 
     def exchange_twitter_code(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
         """Exchange Twitter authorization code for access token."""
-        from core.config import settings
-        self.twitter_client_id = settings.TWITTER_CLIENT_ID
-        self.twitter_client_secret = settings.TWITTER_CLIENT_SECRET
-        
         if not self.twitter_client_id or not self.twitter_client_secret:
              raise Exception("Twitter credentials not configured")
 
