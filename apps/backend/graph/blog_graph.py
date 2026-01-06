@@ -41,6 +41,7 @@ class BlogState(TypedDict):
 graph = StateGraph(BlogState)
 
 # Add Nodes
+graph.add_node("initial_safety_agent", safety_check)
 graph.add_node("intent_agent", extract_intent)
 graph.add_node("trend_agent", analyze_trends)
 graph.add_node("write_agent", write_blog)
@@ -50,9 +51,24 @@ graph.add_node("image_agent", generate_image)
 graph.add_node("safety_agent", safety_check)
 
 # Set Entry Point
-graph.set_entry_point("intent_agent")
+graph.set_entry_point("initial_safety_agent")
 
 # Define Edges
+
+# 0. Initial Safety -> Intent (or End)
+def route_initial_safety(state: BlogState):
+    if state.get("status") == "unsafe":
+        return END
+    return "intent_agent"
+
+graph.add_conditional_edges(
+    "initial_safety_agent",
+    route_initial_safety,
+    {
+        "intent_agent": "intent_agent",
+        END: END
+    }
+)
 
 # 1. Intent -> Trend
 graph.add_edge("intent_agent", "trend_agent")
