@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { CKEditor, useCKEditorCloud } from '@ckeditor/ckeditor5-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,10 +19,62 @@ interface SidebarEditorProps {
     onClose: () => void
     title?: string
     userId: string
+    imageUrl?: string | null
 }
 
-export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId }: SidebarEditorProps) {
-    const [content, setContent] = useState(initialData)
+export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId, imageUrl }: SidebarEditorProps) {
+    // Inject image into content if provided, placing it after the first header
+    // Inject image into content if provided, placing it after the first header
+    const injectImage = useCallback((content: string, imgUrl: string) => {
+        if (content.includes(imgUrl)) return content
+
+        // Check for HTML header
+        const htmlHeaderRegex = /(<h[1-2][^>]*>.*?<\/h[1-2]>)/i
+        const htmlMatch = content.match(htmlHeaderRegex)
+
+        // Check for Markdown header (# Title or ## Title)
+        const mdHeaderRegex = /(^#{1,2}\s+.*$)/m
+        const mdMatch = content.match(mdHeaderRegex)
+
+        const imageHtml = `<figure class="image"><img src="${imgUrl}" alt="Blog Header"></figure>`
+        const imageMd = `\n\n![Blog Header](${imgUrl})\n\n`
+
+        // Handle HTML content
+        if (htmlMatch) {
+            return content.replace(htmlHeaderRegex, `$1${imageHtml}`)
+        }
+
+        // Handle Markdown content
+        if (mdMatch) {
+            return content.replace(mdHeaderRegex, `$1${imageMd}`)
+        }
+
+        // Fallback: Prepend (HTML if implies HTML usage, else Markdown default)
+        // Heuristic: If content starts with <, treat as HTML, else Markdown
+        return content.trim().startsWith('<')
+            ? `${imageHtml}${content}`
+            : `${imageMd}${content}`
+    }, [])
+
+    const contentWithImage = useMemo(() => {
+        if (imageUrl) {
+            return injectImage(initialData, imageUrl)
+        }
+        return initialData
+    }, [initialData, imageUrl, injectImage])
+
+    const [content, setContent] = useState(contentWithImage)
+
+    // Consolidate content update logic
+    useEffect(() => {
+        if (imageUrl) {
+            setContent(injectImage(initialData, imageUrl))
+        } else {
+            setContent(initialData)
+        }
+        setIsDirty(false)
+    }, [initialData, imageUrl, injectImage])
+
     const [isSaving, setIsSaving] = useState(false)
     const [isDirty, setIsDirty] = useState(false)
     const [editor, setEditor] = useState<any>(null)
@@ -40,12 +92,6 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         version: '44.1.0',
         premium: true
     })
-
-    // Update content when initialData changes (e.g., when switching between messages or modifications)
-    useEffect(() => {
-        setContent(initialData)
-        setIsDirty(false)
-    }, [initialData])
 
     // Update editor data when content changes externally
     useEffect(() => {
@@ -164,7 +210,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         editor={ClassicEditor}
                         data={content}
                         config={{
-                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3OTc3MjQ3OTksImp0aSI6ImRmNzA5ZDc5LTZiMzAtNGRjYi04MzFkLWNiOWU3MGM5ZmVmOSIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVudC5ja2VkaXRvci5jb20iLCJkaXN0cmlidXRpb25DaGFubmVsIjpbImNsb3VkIiwiZHJ1cGFsIl0sImxpY2Vuc2VUeXBlIjoiZGV2ZWxvcG1lbnQiLCJmZWF0dXJlcyI6WyJEUlVQIiwiRTJQIiwiRTJXIl0sInJlbW92ZUZlYXR1cmVzIjpbIlBCIiwiUkYiLCJTQ0giLCJUQ1AiLCJUTCIsIlRDUiIsIklSIiwiU1VBIiwiQjY0QSIsIkxQIiwiSEUiLCJSRUQiLCJQRk8iLCJXQyIsIkZBUiIsIkJLTSIsIkZQSCIsIk1SRSJdLCJ2YyI6IjQxNDllYzRiIn0.rVAFEwnSsbW_lZRcKsFVp4tMpeOB3sDGVlNYUX_f5Fwc2TEguS8t8RHi1L9F_jdqHp3InadZKeFRo6BNXodk4A',
+                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3OTc3MjQ3OTksImp0aSI6ImRmNzA5ZDc5LTZiMzAtNGRjYi04MzFkLWNiOWU3MGM5ZmVmOSIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVnt.ckeditor.com", "distributionChannel": ["cloud", "drupal"], "licenseType": "development", "features": ["DRUP", "E2P", "E2W"], "removeFeatures": ["PB", "RF", "SCH", "TCP", "TL", "TCR", "IR", "SUA", "B64A", "LP", "HE", "RED", "PFO", "WC", "FAR", "BKM", "FPH", "MRE"], "vc": "4149ec4b"}.rVAFEwnSsbW_lZRcKsFVp4tMpeOB3sDGVlNYUX_f5Fwc2TEguS8t8RHi1L9F_jdqHp3InadZKeFRo6BNXodk4A',
                             plugins: [
                                 Essentials,
                                 Clipboard,

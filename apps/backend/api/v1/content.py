@@ -571,6 +571,7 @@ async def generate_content(
             db.add(assistant_message_main)
             db.flush()  # Get IDs
         
+
         # ========== CACHE CONVERSATION & MESSAGES (FOR ALL REQUESTS) ==========
         # LOGIC: Try to append to existing conversation if it exists (unified history), otherwise create new.
         
@@ -1132,3 +1133,46 @@ async def list_models():
             },
         ]
     }
+
+
+# Import ImageCollector
+from intelligence.image_collector import ImageCollector
+
+class RegenerateImageRequest(BaseModel):
+    content: str
+
+class RegenerateImageResponse(BaseModel):
+    image_url: Optional[str] = None
+
+@router.post("/regenerate-image", response_model=RegenerateImageResponse)
+async def regenerate_image(request: RegenerateImageRequest):
+    """
+    Regenerate an image based on the provided content (blog post).
+    """
+    try:
+        # Extract keywords to use as prompt
+        keywords = extract_keywords_from_prompt(request.content)
+        query = " ".join(keywords[:5]) if keywords else request.content[:100]
+        
+        print(f"[DEBUG] Regenerate Image Request. Query: {query}")
+        
+        collector = ImageCollector()
+        print(f"[DEBUG] ImageCollector initialized. Project ID: {collector.project_id}")
+        
+        image_url = await collector.get_relevant_image(query)
+        
+        if not image_url:
+             print("[ERROR] No image returned (Safety Block?)")
+             raise HTTPException(status_code=422, detail="Image generation blocked by safety filters or returned no result.")
+
+        return RegenerateImageResponse(image_url=image_url)
+
+    except ValueError as ve:
+         # Captured from ImageCollector
+         print(f"[ERROR] Logic Error: {ve}")
+         raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        print(f"[ERROR] Image regeneration error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Generation Error: {str(e)}")
