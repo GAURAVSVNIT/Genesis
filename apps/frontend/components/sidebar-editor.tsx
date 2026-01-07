@@ -210,7 +210,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         editor={ClassicEditor}
                         data={content}
                         config={{
-                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3OTc3MjQ3OTksImp0aSI6ImRmNzA5ZDc5LTZiMzAtNGRjYi04MzFkLWNiOWU3MGM5ZmVmOSIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVnt.ckeditor.com", "distributionChannel": ["cloud", "drupal"], "licenseType": "development", "features": ["DRUP", "E2P", "E2W"], "removeFeatures": ["PB", "RF", "SCH", "TCP", "TL", "TCR", "IR", "SUA", "B64A", "LP", "HE", "RED", "PFO", "WC", "FAR", "BKM", "FPH", "MRE"], "vc": "4149ec4b"}.rVAFEwnSsbW_lZRcKsFVp4tMpeOB3sDGVlNYUX_f5Fwc2TEguS8t8RHi1L9F_jdqHp3InadZKeFRo6BNXodk4A',
+                            // licenseKey removed to use GPL/Open Source version
                             plugins: [
                                 Essentials,
                                 Clipboard,
