@@ -1,5 +1,5 @@
 {
-  "name": "Genesis",
+  "name": "genesis",
   "private": true,
   "workspaces": ["apps/*"],
   "scripts": {
