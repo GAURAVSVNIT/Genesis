@@ -666,7 +666,15 @@ async def generate_content(
             generation_time=int((time.time() - start_time) * 1000),
             created_at=datetime.utcnow()
         )
-        db.add(prompt_cache_entry)
+        try:
+            db.add(prompt_cache_entry)
+            db.commit()
+        except Exception as e:
+            # Handle race condition where another request cached this prompt simultaneously
+            print(f"[Cache] Race condition or error caching prompt: {e}")
+            db.rollback()
+            # Continue without failing the request
+
         
         # ========== STEP 7.5: STORE IN REDIS (HOT CACHE FOR GUESTS) ==========
         # Store in Redis for guest sessions (consistent with api/v1/guest.py)
@@ -740,64 +748,29 @@ async def generate_content(
         trend_analysis = await trend_analyzer.analyze_for_generation(request.prompt, keywords, trend_data)
         print(f" [Trends] Analysis complete. Generated {len(trend_analysis.get('recommendations', []))} suggestions.")
         
-        # ========== STEP 8C: IMAGE GENERATION (HANDLED BY GRAPH) ==========
-        # The image is now generated within the blog_graph by 'image_agent'
-        # We extract it from the final state if available.
+        # ========== STEP 8C: IMAGE GENERATION ==========
+        # Use AI Art Director for enhanced prompt
+        from intelligence.image_prompter import generate_image_prompt
         
         relevant_image_url = None
-        # Check if we have an image in the graph state (if this was a graph run)
-        # Note: 'content' variable currently holds the text. 
-        # The 'agent.invoke' in Step 4 returns the 'content' string because that's how content_agent.py is structured.
-        # BUT we are using 'blog_graph' for blogs vs 'content_agent' for simple chat?
-        # WAIT: content.py uses 'create_agent' -> 'ContentGenerationAgent' (simple chain)
-        # It does NOT use 'blog_graph.py' (the complex one with SEO/Image nodes).
-        # This means modifying 'blog_graph.py' ONLY affects the 'blog_workflow.py' or wherever blog_graph is used.
-        # 'content.py' seems to be the entry point for "GenerateContentRequest".
-        # If 'content.py' is using the simple agent, my changes to 'blog_graph.py' won't take effect here!
-        # I need to check if 'content.py' switches to 'blog_graph' for blog requests.
-        # Looking at Step 4, it uses 'agent = get_agent(config)'. 'get_agent' calls 'create_agent' from 'graph.content_agent'.
-        # This confirms 'content.py' uses the SIMPLE AGENT.
-        
-        # CORRECTIVE ACTION:
-        # Since 'content.py' is the main API, I should either:
-        # 1. Upgrade 'content.py' to use 'blog_graph' for blog generation.
-        # 2. Or keep the imperative logic in 'content.py' (which the user disliked).
-        # 3. Or add 'image_agent' to 'content_agent.py' as well.
-        
-        # User asked for "add a node for it". 
-        # If I want to support this in the API, I should update 'content.py' to use 'blog_graph.py' when type=blog.
-        # BUT 'content.py' does not seem to distinguish type well, it just takes a prompt.
-        # It has "format" and "tone".
-        
-        # Let's check if there is another endpoint for blogs. 
-        # The user was using the "Blog Editor", which likely calls this endpoint.
-        
-        # In the interest of time and user request: 
-        # The user said "add a node for it".
-        # I already added the node to 'blog_graph'.
-        # If 'content.py' is what drives the UI, I must update 'content.py' to use 'blog_graph'.
-        # However, switching the entire graph might be risky/complex right now.
-        # Alternative: Add the 'image_agent' node to 'content_agent.py' too?
-        # 'content_agent.py' is a simple linear graph.
-        
-        # Actually, looking at 'blog_graph.py', it uses 'write_blog' (agents/blog_writer.py).
-        # 'content.py' uses 'ContentGenerationAgent' (Vertex AI direct).
-        # These are two different paths.
-        
-        # If I proceed with removing imperative logic here, I MUST ensure 'agent.invoke' includes image generation.
-        # Let's use the explicit 'ImageCollector' here as a "Node" conceptually in the imperative flow 
-        # OR switch to the graph.
-        # Guided by "add a node for it", the strict interpretation is the Graph Node.
-        # If I can't switch/unify them easily, I will implement the image generation here 
-        # but structured cleanly as if it were a linear step, confirming the "async like" behavior.
-        
-        # Wait, the user said "add a node for it ... after all check are done".
-        # If I leave it here (Step 8C), it IS after checks.
-        # But the user specifically mentioned "image not generated" toast.
-        
-        # Plan B: Keep imperative here (it works) AND Ensure 'blog_graph' also works for background/async tasks.
-        # But for the API response `image_url` to be present, I MUST generate it here.
-        # The previous code (lines 719-727) WAS generating it.
+        try:
+            print(f" [Image] Consulting Art Director for: {request.prompt[:30]}... (Tone: {request.tone})")
+            # Pass the first 1000 chars of the generated content as summary context
+            summary_context = content_str[:1000] if content_str else None
+            image_query = await generate_image_prompt(request.prompt, keywords, request.tone, summary=summary_context)
+            print(f" [Image] Generative Query: {image_query[:50]}...")
+            
+            # Fetch image using enhanced query
+            relevant_image_url = await image_collector.get_relevant_image(image_query)
+            
+            if relevant_image_url:
+                 print(f" [Image] Generated successfully.")
+            else:
+                 print(f" [Image] Failed to generate.")
+                 
+        except Exception as e:
+            print(f" [Image] Generation failed: {e}")
+            relevant_image_url = None
         # I will RESTORE/KEEP it but ensure it's reliable and logs well.
         
         # Re-reading user request: "add a node for it ... or make it async like text comes and image generates"
@@ -1161,11 +1134,21 @@ async def regenerate_image(request: RegenerateImageRequest):
     Regenerate an image based on the provided content (blog post).
     """
     try:
-        # Extract keywords to use as prompt
+        # Extract keywords to use as context
         keywords = extract_keywords_from_prompt(request.content)
-        query = " ".join(keywords[:5]) if keywords else request.content[:100]
         
-        print(f"[DEBUG] Regenerate Image Request. Query: {query}")
+        # Use AI Art Director for enhanced prompt
+        from intelligence.image_prompter import generate_image_prompt
+        
+        # Since we don't have the original 'tone' in this request, we'll infer 'neutral' or let the AI decide based on content
+        # We treat the entire content as the 'topic' but truncate it for the prompt context
+        safe_topic = request.content[:500] 
+        
+        print(f"[DEBUG] Regenerate Image Request. Consulting Art Director...")
+        # For regeneration, the "request.content" IS the blog content, so we pass it as summary too
+        query = await generate_image_prompt(safe_topic, keywords, tone="neutral", summary=request.content[:1000])
+        print(f"[DEBUG] Generative Query: {query[:50]}...")
+
         
         collector = ImageCollector()
         print(f"[DEBUG] ImageCollector initialized. Project ID: {collector.project_id}")

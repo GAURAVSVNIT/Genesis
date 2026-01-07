@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from intelligence.image_collector import ImageCollector
+from intelligence.image_prompter import generate_image_prompt
 
 async def generate_image(state: Dict[str, Any]):
     """
@@ -13,11 +14,17 @@ async def generate_image(state: Dict[str, Any]):
             
         prompt = state.get("prompt", "")
         keywords = state.get("keywords", [])
+        tone = state.get("tone", "neutral")
         
-        # Decide query: use first keyword or prompt excerpt
-        query = keywords[0] if keywords else prompt[:50]
+        # Get blog content if available to use as specific context
+        blog_content = state.get("blog", "")
+        summary_context = blog_content[:1000] if blog_content else None
         
-        print(f"[Image Agent] Generating image for query: {query}")
+        # Use AI Art Director to generate specific visual prompt
+        print(f"[Image Agent] Consulting Art Director for: {prompt[:30]}...")
+        query = await generate_image_prompt(prompt, keywords, tone, summary=summary_context)
+        
+        print(f"[Image Agent] Generative Query: {query[:50]}...")
         
         collector = ImageCollector()
         image_url = await collector.get_relevant_image(query)
