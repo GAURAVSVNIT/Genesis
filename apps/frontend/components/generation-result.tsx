@@ -81,7 +81,7 @@ export function GenerationResult({ content, isLoading, metrics }: GenerationResu
                 </CardContent>
             </Card>
         )
-        )
+
     }
 
     if (!content) return null
