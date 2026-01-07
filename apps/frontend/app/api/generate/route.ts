@@ -5,8 +5,10 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    
     // Forward to Python backend
-    const response = await fetch("http://127.0.0.1:8000/v1/content/generate", {
+    const response = await fetch(`${BACKEND_URL}/v1/content/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

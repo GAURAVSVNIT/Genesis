@@ -166,6 +166,10 @@ export const socialApi = {
     /**
      * Share content to LinkedIn
      */
+    shareToLinkedIn: async (userId: string, content: string, url?: string, title?: string, targetUrn?: string) => {
+        return socialApi.shareContent(userId, 'linkedin', content, url, title, targetUrn);
+    },
+
     /**
      * Share content to a Social Platform
      */

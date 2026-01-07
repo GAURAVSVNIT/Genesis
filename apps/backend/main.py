@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -22,8 +23,8 @@ async def lifespan(app: FastAPI):
     try:
         init_db()  # Create database tables
     except Exception as e:
-        print(f"⚠️  Warning: Database initialization failed: {e}")
-        print("⚠️  Server will continue running in limited mode")
+        print(f" Warning: Database initialization failed: {e}")
+        print(" Server will continue running in limited mode")
     try:
         UpstashRedisClient.get_instance()
     except Exception as e:
@@ -38,14 +39,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Genesis", description="Genesis API", version="1.0.0", lifespan=lifespan)
 
 # Add CORS middleware FIRST (before any routes)
+# Parse allowed origins from environment variable
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://genecis.vercel.app",
+]
+
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    allowed_origins.extend([origin.strip() for origin in env_origins.split(",") if origin.strip()])
+
 app.add_middleware(
     CORSMiddleware,
     # Allow specific origins
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://genecis.vercel.app",
-    ],
+    allow_origins=allowed_origins,
     # Regex to matches any localhost/127.0.0.1 port (great for dev)
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1|::1)(:\d+)?",
     allow_credentials=True,

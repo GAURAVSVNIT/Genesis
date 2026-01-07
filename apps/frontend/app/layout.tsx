@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
@@ -32,12 +34,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <GuestSessionInit />
-        <GuestSessionInit />
+        <Suspense>
+          <GuestSessionInit />
+        </Suspense>
         {/* Navigation removed - merged into ChatInterface */}
-        <GuestMigrationHandler />
-        <GuestMigrationHandler />
-        <SignupMigrationHandler />
+        <Suspense>
+          <GuestMigrationHandler />
+        </Suspense>
+        <Suspense>
+          <SignupMigrationHandler />
+        </Suspense>
         {children}
         <Toaster />
       </body>
