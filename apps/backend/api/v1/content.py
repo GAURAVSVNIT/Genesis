@@ -595,7 +595,8 @@ async def generate_content(
         formatting_instruction = "\n\n" + get_formatted_output_prompt(
             format_type=request.format,
             max_words=request.max_words,
-            include_sections=request.include_sections
+            include_sections=request.include_sections,
+            tone=request.tone
         )
         
         # Combine with enhanced system prompt

@@ -167,24 +167,24 @@ def get_content_enrichment_prompt() -> str:
     - Implications and consequences
     - Questions for deeper thinking
     """
-    return """After the main content, add these sections:
-
-1. CRITICAL ANALYSIS
+    return """After the main content, add these sections. You MUST use '##' for the section headers:
+    
+## CRITICAL ANALYSIS
    - What are the strongest weaknesses or limitations?
    - What assumptions might be wrong?
    - What does the evidence actually show?
 
-2. ALTERNATIVE PERSPECTIVES
+## ALTERNATIVE PERSPECTIVES
    - What would critics say?
    - What's valid in opposing views?
    - Where might consensus thinking be wrong?
 
-3. REAL-WORLD IMPLICATIONS
+## REAL-WORLD IMPLICATIONS
    - What are the practical consequences?
    - Who benefits? Who loses?
    - What might go wrong?
 
-4. QUESTIONS TO CONSIDER
+## QUESTIONS TO CONSIDER
    - What should readers think more deeply about?
    - What assumptions should they question?
    - What did they learn that changes their perspective?
@@ -195,7 +195,8 @@ Use concrete examples throughout. Be specific, not vague."""
 def get_formatted_output_prompt(
     format_type: str = 'markdown',
     max_words: int = None,
-    include_sections: bool = True
+    include_sections: bool = True,
+    tone: Optional[str] = None
 ) -> str:
     """
     Get prompt for formatted output generation.
@@ -204,28 +205,89 @@ def get_formatted_output_prompt(
         format_type: 'markdown', 'html', 'plain', 'structured'
         max_words: Maximum word count (approximate)
         include_sections: Include section breaks and headers
+        tone: The selected tone filter to customize structure
         
     Returns:
         Formatting prompt
     """
     prompt = f"Format your response as {format_type.upper()}.\n"
     
+    # CRITICAL INSTRUCTION: STFU and just write the content
+    prompt += """
+CRITICAL OUTPUT RULES:
+1. Return ONLY the final content.
+2. Do NOT include any conversational filler like "Here is your post", "Sure!", "I hope this helps", etc.
+3. Do NOT wrap the output in markdown code blocks (e.g. ```markdown). Just return the raw text.
+4. Start directly with the Title (H1).
+"""
+    
     if max_words:
         prompt += f"Keep the total response under {max_words} words.\n"
     
+    # Define Structural Templates by Tone
+    structure_instruction = ""
     if include_sections:
+        tone_key = tone.lower() if tone else "default"
+        
+        if tone_key == "analytical":
+            structure_instruction = """
+STRUCTURE (Analytical):
+1. **Title**: Precise and Descriptive
+2. **Introduction**: Problem Statement + Methodology/Thesis
+3. **Core Analysis**: Breakdown of key data/arguments (Use ##)
+4. **Implications**: "What this means"
+5. **Conclusion**: Final assessment"""
+            
+        elif tone_key == "opinionated":
+            structure_instruction = """
+STRUCTURE (Opinionated):
+1. **Title**: Bold/Provocative
+2. **The Hook**: Strong opening statement/opinion
+3. **The Argument**: Core reasons why (Use ##)
+4. **The Counter-Rebuttal**: "Critics might say..." -> Crush it
+5. **The Takeaway**: Final call to action"""
+            
+        elif tone_key == "investigative":
+            structure_instruction = """
+STRUCTURE (Investigative):
+1. **Title**: Narrative/Revealing
+2. **The Lead**: Set the scene/Define the mystery
+3. **The Deep Dive**: Uncovering layers (Use ##)
+4. **Connecting the Dots**: Synthesis of findings
+5. **The Reveal/Conclusion**: Final truth"""
+            
+        elif tone_key == "contrarian":
+            structure_instruction = """
+STRUCTURE (Contrarian):
+1. **Title**: Challenging the Status Quo
+2. **The Consensus**: "What everyone thinks"
+3. **The Flaw**: Why they are wrong (Use ##)
+4. **The Reality**: The better perspective
+5. **Future Outlook**: Where things are actually going"""
+            
+        else: # Default/Standard
+            structure_instruction = """
+STRUCTURE (Standard Blog):
+1. **Title**: Catchy and Engaging
+2. **Introduction**: Hook + Thesis
+3. **Main Points**: 3-4 Key Sections (Use ##)
+4. **Conclusion**: Summary + Takeaway"""
+
         if format_type == 'markdown':
-            prompt += """Use markdown formatting:
-- Use # for main headings
-- Use ## for subheadings
+            prompt += f"""Use markdown formatting:
+- Use # for Title (H1) - Only one per post
+- Use ## for Main Sections (H2)
+- Use ### for Subsections (H3)
 - Use - for bullet points
 - Use **bold** for emphasis
 - Use > for important quotes
-- Include line breaks between sections"""
+- Include blank lines between paragraphs.
+
+{structure_instruction}"""
         elif format_type == 'html':
             prompt += """Use HTML formatting:
-- Use <h1> for main headings
-- Use <h2> for subheadings
+- Use <h1> for Title
+- Use <h2> for Main Sections
 - Use <p> for paragraphs
 - Use <ul><li> for lists
 - Use <strong> for emphasis
@@ -237,6 +299,7 @@ def get_formatted_output_prompt(
 - ANALYSIS: Critical examination
 - IMPLICATIONS: Real-world consequences
 - CONCLUSION: Summary and call-to-action"""
+    
     
     return prompt
 
