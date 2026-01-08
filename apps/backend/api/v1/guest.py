@@ -357,10 +357,21 @@ async def migrate_guest_to_user(
         try:
             guest_usage = db.query(UsageMetrics).filter_by(user_id=guest_id).first()
             if guest_usage:
-                guest_usage.user_id = authenticated_user_id  # Reassign to authenticated user
-                guest_usage.tier = "authenticated"  # Upgrade from 'guest' to 'authenticated'
+                # Check if authenticated user ALREADY has usage metrics
+                user_usage = db.query(UsageMetrics).filter_by(user_id=authenticated_user_id).first()
+                if user_usage:
+                    # Merge counts
+                    user_usage.total_requests += guest_usage.total_requests
+                    user_usage.cache_misses += guest_usage.cache_misses
+                    # Delete guest record to avoid duplicate/orphaned record
+                    db.delete(guest_usage)
+                    print(f"[UsageMetrics] ✓ Merged guest metrics into existing user metrics: {authenticated_user_id}")
+                else:
+                    # No existing user metrics, safe to reassign
+                    guest_usage.user_id = authenticated_user_id
+                    guest_usage.tier = "authenticated"
+                    print(f"[UsageMetrics] ✓ Reassigned guest metrics to user: {authenticated_user_id}")
                 db.commit()
-                print(f"[UsageMetrics] ✓ Migrated usage metrics from guest to user: {authenticated_user_id}")
             else:
                 print(f"[UsageMetrics] ℹ No guest usage metrics to migrate")
         except Exception as e:

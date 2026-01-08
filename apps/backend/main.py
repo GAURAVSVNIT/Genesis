@@ -44,6 +44,7 @@ allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://genecis.vercel.app",
+    "https://genesis-three-henna.vercel.app",
 ]
 
 env_origins = os.getenv("ALLOWED_ORIGINS")

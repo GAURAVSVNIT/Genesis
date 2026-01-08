@@ -13,6 +13,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+import { ImageControls } from './image-controls'
+
 interface SidebarEditorProps {
     initialData: string
     onSave: (content: string) => Promise<void>
@@ -22,8 +24,7 @@ interface SidebarEditorProps {
     imageUrl?: string | null
 }
 
-export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId, imageUrl }: SidebarEditorProps) {
-    // Inject image into content if provided, placing it after the first header
+export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Content', userId, imageUrl: initialImageUrl }: SidebarEditorProps) {
     // Inject image into content if provided, placing it after the first header
     const injectImage = useCallback((content: string, imgUrl: string) => {
         if (content.includes(imgUrl)) return content
@@ -44,36 +45,68 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
             return content.replace(htmlHeaderRegex, `$1${imageHtml}`)
         }
 
-        // Handle Markdown content
+        // Handle Handle Markdown content
         if (mdMatch) {
             return content.replace(mdHeaderRegex, `$1${imageMd}`)
         }
 
-        // Fallback: Prepend (HTML if implies HTML usage, else Markdown default)
-        // Heuristic: If content starts with <, treat as HTML, else Markdown
+        // Fallback: Prepend
         return content.trim().startsWith('<')
             ? `${imageHtml}${content}`
             : `${imageMd}${content}`
     }, [])
 
+    // Track the current image URL separately to pass to controls
+    const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialImageUrl || null)
+
     const contentWithImage = useMemo(() => {
-        if (imageUrl) {
-            return injectImage(initialData, imageUrl)
+        if (initialImageUrl) {
+            return injectImage(initialData, initialImageUrl)
         }
         return initialData
-    }, [initialData, imageUrl, injectImage])
+    }, [initialData, initialImageUrl, injectImage])
 
     const [content, setContent] = useState(contentWithImage)
 
-    // Consolidate content update logic
-    useEffect(() => {
-        if (imageUrl) {
-            setContent(injectImage(initialData, imageUrl))
+    // Handle Image Updates from Controls
+    const handleImageUpdate = (newUrl: string | null) => {
+        setCurrentImageUrl(newUrl)
+
+        let newContent = content
+
+        // Regex to find existing images (Markdown or HTML)
+        const imgRegex = /(!\[.*?\]\(.*?\))|(<figure class="image">.*?<\/figure>)|(<img[^>]+src="([^">]+)"[^>]*>)/g
+
+        if (!newUrl) {
+            // REMOVE: Strip all images
+            newContent = newContent.replace(imgRegex, '')
         } else {
-            setContent(initialData)
+            // ADD / REPLACE
+            if (imgRegex.test(newContent)) {
+                // Replace existing
+                // Simple replace might be tricky with mixed formats, but let's try replacing the src if possible or just the whole tag
+                // For robustness, let's remove old and inject new
+                newContent = newContent.replace(imgRegex, '')
+                newContent = injectImage(newContent, newUrl)
+            } else {
+                // Add new
+                newContent = injectImage(newContent, newUrl)
+            }
         }
-        setIsDirty(false)
-    }, [initialData, imageUrl, injectImage])
+
+        setContent(newContent)
+        // Update editor if instance is ready
+        if (editor) {
+            editor.setData(newContent)
+        }
+    }
+
+    // Effect to handle external image updates (e.g. "Insert into Blog" clicked again)
+    useEffect(() => {
+        if (initialImageUrl && initialImageUrl !== currentImageUrl) {
+            handleImageUpdate(initialImageUrl)
+        }
+    }, [initialImageUrl, currentImageUrl, content]) // depend on content to ensure we have latest version when updating
 
     const [isSaving, setIsSaving] = useState(false)
     const [isDirty, setIsDirty] = useState(false)
@@ -186,15 +219,25 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         <div className="flex flex-col h-full bg-background/95 backdrop-blur-md border-l border-border/50 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/50 backdrop-blur-sm">
-                <h3 className="font-medium text-lg text-foreground tracking-tight pl-2">{title}</h3>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                    className="h-8 w-8 p-0 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all rounded-lg"
-                >
-                    <X className="w-4 h-4" />
-                </Button>
+                <h3 className="font-medium text-lg text-foreground tracking-tight pl-2 mr-auto">{title}</h3>
+                <div className="flex items-center gap-2">
+                    <ImageControls
+                        content={content}
+                        currentImageUrl={currentImageUrl}
+                        onImageUpdate={handleImageUpdate}
+                    />
+
+                    <div className="w-px h-6 bg-border/40 mx-1"></div>
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onClose}
+                        className="h-8 w-8 p-0 hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all rounded-lg"
+                    >
+                        <X className="w-4 h-4" />
+                    </Button>
+                </div>
             </div>
 
             {/* Editor */}
@@ -210,7 +253,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                         editor={ClassicEditor}
                         data={content}
                         config={{
-                            // licenseKey removed to use GPL/Open Source version
+                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3OTk0NTI3OTksImp0aSI6IjQ1Nzc4ZGNkLTFhZWItNDU3MS05NWVmLWJhYjJjMWI1ODUxNiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiXSwiZmVhdHVyZXMiOlsiRFJVUCIsIkUyUCIsIkUyVyJdLCJyZW1vdmVGZWF0dXJlcyI6WyJQQiIsIlJGIiwiU0NIIiwiVENQIiwiVEwiLCJUQ1IiLCJJUiIsIlNVQSIsIkI2NEEiLCJMUCIsIkhFIiwiUkVEIiwiUEZPIiwiV0MiLCJGQVIiLCJCS00iLCJGUEgiLCJNUkUiXSwidmMiOiI5ZWZiZjY0ZSJ9.mx4I_HNQu5MH_Rt2fak8nFFTeF-SFLXlC_FFgO_jQ2bfdjuyCUEQ02bvXM2ixV6ujmmJLzu6GobkMC9j3deDSQ',
                             plugins: [
                                 Essentials,
                                 Clipboard,
@@ -257,7 +300,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
                             ],
                             toolbar: {
                                 items: [
-                                    'undo', '|',
+                                    'undo', 'redo', '|',
                                     'heading', '|',
                                     'bold', 'italic', 'underline', 'strikethrough', 'code', '|',
                                     'fontFamily', 'fontSize', '|',

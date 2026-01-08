@@ -4,6 +4,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:800
 
 export interface BlogRequest {
     prompt: string
+    intent: 'chat' | 'blog' | 'edit' | 'rewrite' | 'image'
     tone: string
     length: string
     guestId?: string | null

@@ -47,7 +47,8 @@ export function useGeneration(isAuthenticated: boolean) {
             // Inject guestId if not authenticated
             const requestWithGuestId = {
                 ...request,
-                guestId: !isAuthenticated ? guestId : undefined
+                guestId: !isAuthenticated ? guestId : undefined,
+                intent: request.intent // Explicitly pass intent
             }
             const response = await generateBlog(requestWithGuestId)
             console.log('[DEBUG] Received response:', response)

@@ -35,40 +35,44 @@ except Exception as e:
 # System prompt for classification
 SYSTEM_PROMPT = """You are an expert intent classifier for an AI content generation platform.
 
-Your task is to classify user prompts into one of four categories:
+Your task is to classify user prompts into one of five categories:
 
 1. **CHAT**: General conversation, questions, advice, discussions
    - Examples: "What are the benefits of AI?", "How do I improve my writing?", "Tell me about marketing"
    - Keywords: ?, how, what, why, explain, discuss, help, tips, advice, question
    - Characteristics: User seeking information or having a conversation
 
-2. **BLOG**: Request to create NEW content from scratch
-   - Examples: "Write a blog about AI", "Create an article on climate change", "Generate a product description"
+2. **BLOG**: Request to create NEW text content (usually long-form)
+   - Examples: "Write a blog about AI", "Create an article on climate change", "Generate a detailed product description"
    - Keywords: write, create, generate, draft, compose, blog, article, post, content, story, guide
-   - Characteristics: No existing content mentioned, starting fresh
+   - Characteristics: No existing content mentioned, starting fresh text generation
 
-3. **MODIFY**: Request to enhance/improve/edit EXISTING content
+3. **EDIT**: Request to enhance/improve/modify EXISTING content
    - Examples: "Make it more professional", "Add more details", "Change the tone", "Improve the introduction"
-   - Keywords: improve, enhance, better, add, more, increase, expand, polish, refine, better, strengthen
+   - Keywords: improve, enhance, better, add, more, increase, expand, polish, refine, better, strengthen, edit, modify
    - Characteristics: References to existing content, asking for incremental changes
-   - Rule: Only if there IS existing content in context
 
 4. **REWRITE**: Request for complete restart or fresh take from scratch
    - Examples: "Rewrite it completely", "Start over", "Write from scratch", "Completely new version"
    - Keywords: rewrite, restart, start over, from scratch, completely new, different angle, fresh approach
    - Characteristics: User wants to discard current approach and begin anew
 
+5. **IMAGE**: Request for standalone image generation
+   - Examples: "Generate an image of a futuristic city", "Create a picture of a cat", "Draw a logo"
+   - Keywords: image, picture, photo, drawing, art, illustration, logo, banner, visual, generate an image
+   - Characteristics: Explicit request for visual content
+
 Rules:
-- If user says REWRITE/START OVER/FROM SCRATCH → REWRITE (ignore existing content, start fresh)
-- If user says IMPROVE/ENHANCE/ADD/EXPAND with existing content → MODIFY (enhance current)
-- If user says WRITE/CREATE/GENERATE → BLOG (new content)
+- If user explicitly says "IMAGE" or "PICTURE" of something → IMAGE
+- If user says REWRITE/START OVER/FROM SCRATCH → REWRITE
+- If user says IMPROVE/ENHANCE/ADD/EXPAND with variable context → EDIT
+- If user says WRITE/CREATE/GENERATE (text) → BLOG
 - If user asks a QUESTION → CHAT
-- Always check for rewrite keywords FIRST before defaulting to modify
-- If previous content exists but user wants something fundamentally different → REWRITE
+- Priority: IMAGE > REWRITE > EDIT > BLOG > CHAT
 
 Respond with ONLY a JSON object (no additional text):
 {
-  "intent": "chat", "blog", "modify", or "rewrite",
+  "intent": "chat", "blog", "edit", "rewrite", or "image",
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation (one sentence)"
 }"""
@@ -82,7 +86,7 @@ class IntentClassificationRequest(BaseModel):
 
 class IntentClassificationResponse(BaseModel):
     """Response model for intent classification."""
-    intent: Literal["chat", "blog", "modify", "rewrite"]
+    intent: Literal["chat", "blog", "edit", "rewrite", "image"]
     confidence: float  # 0.0 to 1.0
     reasoning: str
     cached: bool = False
@@ -147,7 +151,16 @@ def classify_with_keywords(prompt: str) -> dict:
     """
     lower_prompt = prompt.lower()
     
-    # Check for rewrite keywords FIRST (highest priority)
+    # Check for IMAGE keywords FIRST
+    image_keywords = ['image', 'picture', 'photo', 'drawing', 'illustration', 'logo', 'visual', 'generate an image']
+    if any(keyword in lower_prompt for keyword in image_keywords):
+        return {
+            "intent": "image",
+            "confidence": 0.95,
+            "reasoning": "Detected image keywords"
+        }
+
+    # Check for rewrite keywords
     rewrite_keywords = ['rewrite', 'restart', 'start over', 'from scratch', 'completely new', 'fresh', 'different angle', 'anew']
     if any(keyword in lower_prompt for keyword in rewrite_keywords):
         return {
@@ -156,9 +169,9 @@ def classify_with_keywords(prompt: str) -> dict:
             "reasoning": "Detected rewrite keywords"
         }
     
-    # Check for modify keywords
-    modify_keywords = ['improve', 'enhance', 'better', 'add', 'more', 'expand', 'polish', 'refine', 'strengthen', 'update', 'modify', 'edit']
-    modify_score = sum(1 for keyword in modify_keywords if keyword in lower_prompt)
+    # Check for edit keywords (renamed from modify)
+    edit_keywords = ['improve', 'enhance', 'better', 'add', 'more', 'expand', 'polish', 'refine', 'strengthen', 'update', 'modify', 'edit', 'change']
+    edit_score = sum(1 for keyword in edit_keywords if keyword in lower_prompt)
     
     # Check for chat indicators
     chat_indicators = ['?', 'how', 'what', 'why', 'explain', 'tell me', 'help', 'tips', 'advice']
@@ -169,9 +182,9 @@ def classify_with_keywords(prompt: str) -> dict:
     blog_score = sum(1 for keyword in blog_keywords if keyword in lower_prompt)
     
     # Determine intent based on scores
-    if modify_score > 0:
-        intent = "modify"
-        confidence = min(0.9, 0.5 + (modify_score * 0.15))
+    if edit_score > 0 and edit_score >= blog_score: # Edit usually implies modifying existing (unless "create" is stronger)
+        intent = "edit"
+        confidence = min(0.9, 0.5 + (edit_score * 0.15))
     elif blog_score > chat_score:
         intent = "blog"
         confidence = min(0.95, 0.5 + (blog_score * 0.1))
