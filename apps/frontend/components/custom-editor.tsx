@@ -42,7 +42,7 @@ const CustomEditor: React.FC<CustomEditorProps> = ({ initialData, onChange }) =>
                 editor={ClassicEditor}
                 data={initialData}
                 config={{
-                    // licenseKey removed
+                    licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3OTk0NTI3OTksImp0aSI6IjQ1Nzc4ZGNkLTFhZWItNDU3MS05NWVmLWJhYjJjMWI1ODUxNiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiXSwiZmVhdHVyZXMiOlsiRFJVUCIsIkUyUCIsIkUyVyJdLCJyZW1vdmVGZWF0dXJlcyI6WyJQQiIsIlJGIiwiU0NIIiwiVENQIiwiVEwiLCJUQ1IiLCJJUiIsIlNVQSIsIkI2NEEiLCJMUCIsIkhFIiwiUkVEIiwiUEZPIiwiV0MiLCJGQVIiLCJCS00iLCJGUEgiLCJNUkUiXSwidmMiOiI5ZWZiZjY0ZSJ9.mx4I_HNQu5MH_Rt2fak8nFFTeF-SFLXlC_FFgO_jQ2bfdjuyCUEQ02bvXM2ixV6ujmmJLzu6GobkMC9j3deDSQ',
                     plugins: [
                         Essentials, Paragraph, Bold, Italic,
                         List, Heading, Link, BlockQuote, Undo, Indent

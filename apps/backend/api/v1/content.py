@@ -164,6 +164,7 @@ class Message(BaseModel):
 class GenerateContentRequest(BaseModel):
     """Request to generate content."""
     prompt: str
+    intent: str = "chat" # 'chat', 'blog', 'edit', 'rewrite', 'image'
     conversation_history: Optional[List[Message]] = None
     safety_level: str = "moderate"  # 'strict', 'moderate', 'permissive'
     guestId: Optional[str] = None
@@ -380,6 +381,51 @@ async def generate_content(
             # ✅ CACHE HIT! Store in generated_content for tracking
             cached_prompt.hits += 1
             
+            # [NEW] Run lightweight analysis to populate metadata for cached content
+            from intelligence.trend_collector import TrendCollector
+            from intelligence.trend_analyzer import TrendAnalyzer
+            
+            # Extract keywords (needed for trends and image)
+            keywords = extract_keywords_from_prompt(request.prompt)
+            
+            # Analyze Trends
+            trend_collector = TrendCollector(use_cache=True)
+            trend_analyzer = TrendAnalyzer()
+            
+            # Await trend collection
+            print(f" [Trends] Collecting trends for cached content...")
+            trend_data = await trend_collector.collect_all_trends(keywords)
+            trend_analysis = await trend_analyzer.analyze_for_generation(request.prompt, keywords, trend_data)
+            
+            # Construct trend context
+            trend_context = ""
+            if trend_analysis.get("trending_topics"):
+                top_trends = [t.get("title", "") for t in trend_analysis["trending_topics"][:3]]
+                trend_context = f"\n\nTrending Context: The following topics are currently trending and relevant to this request: {', '.join(top_trends)}. Incorporate these angles where appropriate."
+
+            # Analyze SEO (on cached content)
+            seo_config = SEOConfig()
+            seo_result = await optimize_content(
+                content=cached_prompt.response_text,
+                keywords=keywords,
+                platform="blog",
+                context=trend_context, 
+                config=seo_config
+            )
+            
+            # Merge Trend Recommendations into SEO result
+            if trend_analysis.get("recommendations"):
+                 if "suggestions" not in seo_result:
+                     seo_result["suggestions"] = []
+                 seo_result["suggestions"].extend(trend_analysis["recommendations"][:3])
+                 
+            seo_result["trend_data"] = trend_analysis
+            
+            # Calculate Scores
+            seo_score = seo_result.get("seo_score", 0.0) / 100.0
+            uniqueness_score = 0.8
+            engagement_score = 0.8
+
             # Store cache hit in generated_content table
             generated_content = GeneratedContent(
                 id=str(uuid.uuid4()),
@@ -394,8 +440,12 @@ async def generate_content(
                     "text": cached_prompt.response_text,
                     "model": "gemini-2.0-flash",
                     "timestamp": datetime.utcnow().isoformat(),
-                    "source": "cache"
+                    "source": "cache",
+                    "seo_data": seo_result
                 },
+                seo_score=seo_score,
+                uniqueness_score=uniqueness_score,
+                engagement_score=engagement_score,
                 status="cached",
                 created_at=datetime.utcnow()
             )
@@ -423,12 +473,11 @@ async def generate_content(
                 from intelligence.image_collector import ImageCollector
                 image_collector = ImageCollector()
                 
-                # Extract keywords for image search
-                keywords = extract_keywords_from_prompt(request.prompt)
+                # Image search query from keywords already extracted
                 image_search_query = keywords[0] if keywords else request.prompt[:20]
                 
                 # Fetch image
-                print(f"🖼️ [Cache Hit] Fetching image for: {image_search_query}")
+                print(f" [Cache Hit] Fetching image for: {image_search_query}")
                 image_url = await image_collector.get_relevant_image(image_search_query)
             except Exception as e:
                 print(f"[Cache Hit] Image generation failed: {e}")
@@ -503,7 +552,10 @@ async def generate_content(
             # If there's history, prepend the enhanced system message
             history = [SystemMessage(content=enhanced_prompt)] + history
         
-        # Generate content with enhanced prompt
+        print(f"[DEBUG] GenerateContentRequest - Intent: {request.intent}, Prompt: {request.prompt[:50]}...")
+        
+        # Check cache early
+        # Generate cache key based on prompt and parameters
         content = agent.invoke(
             user_message=request.prompt,
             conversation_history=history,
@@ -753,24 +805,37 @@ async def generate_content(
         from intelligence.image_prompter import generate_image_prompt
         
         relevant_image_url = None
-        try:
-            print(f" [Image] Consulting Art Director for: {request.prompt[:30]}... (Tone: {request.tone})")
-            # Pass the first 1000 chars of the generated content as summary context
-            summary_context = content_str[:1000] if content_str else None
-            image_query = await generate_image_prompt(request.prompt, keywords, request.tone, summary=summary_context)
-            print(f" [Image] Generative Query: {image_query[:50]}...")
-            
-            # Fetch image using enhanced query
-            relevant_image_url = await image_collector.get_relevant_image(image_query)
-            
-            if relevant_image_url:
-                 print(f" [Image] Generated successfully.")
-            else:
-                 print(f" [Image] Failed to generate.")
-                 
-        except Exception as e:
-            print(f" [Image] Generation failed: {e}")
-            relevant_image_url = None
+        
+        # Check intent for image generation
+        should_generate_image = request.intent in ['blog', 'rewrite', 'image']
+        
+        if should_generate_image:
+            try:
+                print(f" [Image] Consulting Art Director for: {request.prompt[:30]}... (Tone: {request.tone})")
+                
+                # Determine context source based on intent
+                summary_context = None
+                if request.intent in ['blog', 'rewrite']:
+                    # For blogs, use the generated content as context
+                    summary_context = content_str[:1000] if content_str else None
+                
+                # Generate enhanced prompt
+                image_query = await generate_image_prompt(request.prompt, keywords, request.tone, summary=summary_context)
+                print(f" [Image] Generative Query: {image_query[:50]}...")
+                
+                # Fetch image using enhanced query
+                relevant_image_url = await image_collector.get_relevant_image(image_query)
+                
+                if relevant_image_url:
+                     print(f" [Image] Generated successfully.")
+                else:
+                     print(f" [Image] Failed to generate.")
+                     
+            except Exception as e:
+                print(f" [Image] Generation failed: {e}")
+                relevant_image_url = None
+        else:
+            print(f" [Image] Skipping generation for intent: {request.intent}")
         # I will RESTORE/KEEP it but ensure it's reliable and logs well.
         
         # Re-reading user request: "add a node for it ... or make it async like text comes and image generates"
@@ -1134,6 +1199,9 @@ async def regenerate_image(request: RegenerateImageRequest):
     Regenerate an image based on the provided content (blog post).
     """
     try:
+        if not request.content or not request.content.strip():
+            raise HTTPException(status_code=400, detail="Content is required for image generation.")
+
         # Extract keywords to use as context
         keywords = extract_keywords_from_prompt(request.content)
         

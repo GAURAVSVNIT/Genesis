@@ -62,8 +62,9 @@ export async function performCompleteMigration(guestId?: string): Promise<Migrat
         console.log(`✓ [STEP 1/2] User authenticated: ${user.id}`)
 
         // Call backend migration endpoint
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
         console.log(`⏳ [STEP 2/2] Calling backend migration for guest ${targetGuestId}...`)
-        const response = await fetch(`http://localhost:8000/v1/guest/migrate/${targetGuestId}`, {
+        const response = await fetch(`${API_URL}/v1/guest/migrate/${targetGuestId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

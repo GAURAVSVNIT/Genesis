@@ -38,7 +38,7 @@ type Message = {
     role: 'user' | 'assistant'
     content: string
     timestamp: Date
-    type: 'chat' | 'blog' | 'modify' | 'rewrite' // chat: conversation, blog: new content, modify: enhance, rewrite: fresh start
+    type: 'chat' | 'blog' | 'edit' | 'rewrite' | 'image' // Expanded intents
     tone?: string
     length?: string
     image_url?: string
@@ -50,7 +50,7 @@ type BlogCheckpoint = {
     content: string
     title: string
     createdAt: Date
-    chatContextAtTime: Message[] // Chat messages at the time this checkpoint was created
+    chatContextAtTime: Message[]
 }
 
 export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
@@ -67,7 +67,6 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const [showCheckpoints, setShowCheckpoints] = useState(false)
     const [activeEditorImage, setActiveEditorImage] = useState<string | null>(null)
     const [conversationId] = useState(() => crypto.randomUUID())
-    // Use the authenticated user ID if available, otherwise fallback (or handle appropriately)
     const userId = user?.id || 'guest-user-id';
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -77,7 +76,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     useEffect(() => {
         const lastMsg = messages[messages.length - 1]
         if (lastMsg?.role === 'assistant' &&
-            (lastMsg.type === 'blog' || lastMsg.type === 'modify' || lastMsg.type === 'rewrite')) {
+            (lastMsg.type === 'blog' || lastMsg.type === 'edit' || lastMsg.type === 'rewrite')) {
             setShowEditorPanel(true)
             setSidebarEditingId(lastMsg.id)
         }
@@ -111,11 +110,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
         const saveContextToDB = async () => {
             try {
                 const chatMessages = messages.filter(m => m.type === 'chat')
-                // Find the latest content message (blog, modify, or rewrite)
+                // Find the latest content message
                 const blogMsg = messages
                     .slice()
                     .reverse()
-                    .find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant')
+                    .find(m => (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant')
 
                 await saveContext({
                     conversation_id: conversationId,
@@ -124,7 +123,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         id: m.id,
                         role: m.role,
                         content: m.content,
-                        type: m.type,
+                        type: m.type as any, // Cast or update context API type separately if needed
                         timestamp: m.timestamp.toISOString(),
                         tone: m.tone,
                         length: m.length
@@ -133,7 +132,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         id: m.id,
                         role: m.role,
                         content: m.content,
-                        type: m.type,
+                        type: m.type as any,
                         timestamp: m.timestamp.toISOString(),
                         tone: m.tone,
                         length: m.length
@@ -142,11 +141,9 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                 })
             } catch (error) {
                 console.error('Error saving context:', error)
-                // Fail silently - context saving is not critical
             }
         }
 
-        // Debounce context saving to every 2 seconds
         const timer = setTimeout(saveContextToDB, 2000)
         return () => clearTimeout(timer)
     }, [messages, conversationId, userId])
@@ -155,13 +152,13 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const getContextSummary = (): string => {
         const chatMessages = messages.filter(m => m.type === 'chat')
         return chatMessages
-            .slice(-4) // Last 4 chat messages for context
+            .slice(-4)
             .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
             .join('\n')
     }
 
     // Classify intent using backend classifier
-    const classifyPromptType = async (text: string): Promise<'blog' | 'chat' | 'modify' | 'rewrite'> => {
+    const classifyPromptType = async (text: string): Promise<'blog' | 'chat' | 'edit' | 'rewrite' | 'image'> => {
         try {
             setClassifyingIntent(true)
             const contextSummary = getContextSummary()
@@ -172,33 +169,38 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             })
 
             console.log('[DEBUG] Classification result:', result)
-            return result.intent
+            return result.intent as 'blog' | 'chat' | 'edit' | 'rewrite' | 'image'
         } catch (error) {
             console.error('Classification failed, falling back to frontend detection:', error)
-            // Fallback to keyword-based if API fails
             return fallbackClassifyPromptType(text)
         } finally {
             setClassifyingIntent(false)
         }
     }
 
-    // Fallback keyword-based classification for when API fails
-    const fallbackClassifyPromptType = (text: string): 'blog' | 'chat' | 'modify' | 'rewrite' => {
+    // Fallback keyword-based classification
+    const fallbackClassifyPromptType = (text: string): 'blog' | 'chat' | 'edit' | 'rewrite' | 'image' => {
         const lowerText = text.toLowerCase()
 
-        // Check for rewrite keywords FIRST (highest priority)
+        // Check for IMAGE keywords FIRST
+        const imageKeywords = ['image', 'picture', 'photo', 'drawing', 'illustration', 'logo', 'visual', 'generate an image']
+        if (imageKeywords.some(keyword => lowerText.includes(keyword))) {
+            return 'image'
+        }
+
+        // Check for rewrite keywords
         const rewriteKeywords = ['rewrite', 'restart', 'start over', 'from scratch', 'completely new', 'fresh', 'different angle']
         if (rewriteKeywords.some(keyword => lowerText.includes(keyword))) {
             return 'rewrite'
         }
 
-        // Check if there's an existing blog to modify
+        // Check if there's an existing blog to edit
         const existingBlog = messages.find(m => m.type === 'blog' && m.role === 'assistant')
 
-        // Check for modify keywords
-        const modifyKeywords = ['improve', 'enhance', 'better', 'add', 'more', 'expand', 'polish', 'refine', 'strengthen', 'update', 'modify', 'edit']
-        if (existingBlog && modifyKeywords.some(keyword => lowerText.includes(keyword))) {
-            return 'modify'
+        // Check for edit keywords
+        const editKeywords = ['improve', 'enhance', 'better', 'add', 'more', 'expand', 'polish', 'refine', 'strengthen', 'update', 'modify', 'edit', 'change']
+        if (existingBlog && editKeywords.some(keyword => lowerText.includes(keyword))) {
+            return 'edit'
         }
 
         // Check for blog creation keywords
@@ -210,7 +212,6 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             return 'blog'
         }
 
-        // Default to chat
         return 'chat'
     }
 
@@ -221,10 +222,10 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
         }
     }, [messages, isLoading])
 
-    // Auto-select the latest blog/modify/rewrite message when it's added
+    // Auto-select the latest content message
     useEffect(() => {
         const lastContentMsg = messages
-            .filter(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant')
+            .filter(m => (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant')
             .pop()
         if (lastContentMsg && lastContentMsg.id !== sidebarEditingId) {
             setSidebarEditingId(lastContentMsg.id)
@@ -236,7 +237,6 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const handleSend = async () => {
         if (!input.trim() || isLoading || classifyingIntent) return
 
-        // Classify using backend classifier
         const messageType = await classifyPromptType(input)
 
         const userMsg: Message = {
@@ -257,62 +257,49 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     }
 
     const processGeneration = async (msg: Message, allMessages: Message[]) => {
-        // Build complete conversation history (all messages for full context)
+        // Build complete conversation history
         const fullHistory = allMessages
             .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
             .join('\n\n')
 
-        // Get conversation context - all chat messages for context
+        // Get conversation context
         const chatContext = allMessages.filter(m => m.type === 'chat')
         const contextSummary = chatContext
             .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
             .join('\n')
 
-        // Get current blog content for modification context - use LATEST content
+        // Get current blog content for edit context
         const currentBlogMsg = allMessages
             .slice()
             .reverse()
-            .find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant')
+            .find(m => (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant')
         const blogContext = currentBlogMsg ? `Current content:\n${currentBlogMsg.content}` : ''
 
-        // Get the actual action type from classifier (blog, modify, or rewrite)
         let actionType = msg.type
-        if (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite') {
-            // msg.type already contains the correct action
-            actionType = msg.type
-        }
-
         let finalPrompt = msg.content
 
         if (actionType === 'chat') {
-            // Chat mode: include full conversation history so AI remembers context
             if (fullHistory) {
                 finalPrompt = `Previous conversation:\n${fullHistory}\n\nAnswer the user's question while remembering the full conversation context above.`
-            } else {
-                finalPrompt = msg.content
             }
         } else if (actionType === 'blog') {
-            // Blog mode: new content creation
             finalPrompt = msg.content
-        } else if (actionType === 'modify') {
-            // Modify mode: include current blog context
+        } else if (actionType === 'edit') {
             if (blogContext) {
                 finalPrompt = `${blogContext}\n\nUser request: ${msg.content}`
-            } else {
-                finalPrompt = msg.content
             }
         } else if (actionType === 'rewrite') {
-            // Rewrite mode: ignore current blog, start fresh
-            // But keep conversation context
             if (contextSummary) {
                 finalPrompt = `Based on this conversation:\n${contextSummary}\n\nUser request: ${msg.content.replace(/rewrite|restart|start over|from scratch|completely new/gi, '').trim() || 'Create a blog'}`
-            } else {
-                finalPrompt = msg.content
             }
+        } else if (actionType === 'image') {
+            // Image intent: just pass the prompt, the backend handles it as standalone
+            finalPrompt = msg.content
         }
 
         const result = await generate({
             prompt: finalPrompt,
+            intent: msg.type, // Pass the detected intent!
             tone: msg.tone || 'informative',
             length: msg.length || 'medium'
         })
@@ -321,7 +308,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
         if (result) {
             // Check for missing image in blog response and notify user
-            if ((msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite') && !result.image_url) {
+            if ((msg.type === 'blog' || msg.type === 'edit' || msg.type === 'rewrite') && !result.image_url) {
                 toast.warning("Image not generated", {
                     description: "The blog post was created, but we couldn't generate a header image at this time.",
                     duration: 5000,
@@ -340,7 +327,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             setMessages(prev => {
                 const newMessages = [...prev, assistantMsg]
                 // Auto-select blog, modify, and rewrite messages for editor
-                if (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite') {
+                if (msg.type === 'blog' || msg.type === 'edit' || msg.type === 'rewrite') {
                     // Trigger toast here if possible. 
                     // Since I cannot easily add new UI dependencies blindly, 
                     // I will check if 'sonner' or 'react-hot-toast' is in use in the project.
@@ -377,7 +364,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
     // Create blog checkpoint
     const handleCreateCheckpoint = async () => {
-        const blogMsg = messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant')
+        const blogMsg = messages.find(m => (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant')
         if (!blogMsg) {
             alert('No blog content to checkpoint')
             return
@@ -494,7 +481,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     }
 
     const currentEditingMessage = messages.find(m =>
-        m.id === sidebarEditingId && (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant'
+        m.id === sidebarEditingId && (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant'
     )
 
     return (
@@ -571,7 +558,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                         variant="ghost"
                                         size="sm"
                                         onClick={handleCreateCheckpoint}
-                                        disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'modify' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || msg.type === 'modify' || msg.type === 'rewrite'); })()))}
+                                        disabled={!(messages.find(m => (m.type === 'blog' || m.type === 'edit' || m.type === 'rewrite') && m.role === 'assistant') || (showEditorPanel && sidebarEditingId && (() => { const msg = messages.find(m => m.id === sidebarEditingId); return msg && (msg.type === 'blog' || msg.type === 'edit' || msg.type === 'rewrite'); })()))}
                                         className="h-9 w-9 p-0 rounded-lg transition-all hover:bg-secondary/50 text-muted-foreground hover:text-foreground disabled:opacity-30"
                                         title="Create checkpoint"
                                     >
@@ -739,7 +726,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                     : "bg-secondary/40 text-card-foreground border-border/50 rounded-2xl rounded-tl-sm backdrop-blur-sm"
                                             )}>
                                                 <div className="prose prose-invert max-w-none prose-p:m-0 prose-p:leading-relaxed text-sm leading-relaxed break-words font-light">
-                                                    {(msg.role === 'user' || (msg.type !== 'blog' && msg.type !== 'modify' && msg.type !== 'rewrite')) && (
+                                                    {(msg.role === 'user' || (msg.type !== 'blog' && msg.type !== 'edit' && msg.type !== 'rewrite')) && (
                                                         msg.content.includes('<') ? (
                                                             <div dangerouslySetInnerHTML={{ __html: msg.content }} />
                                                         ) : (
@@ -759,9 +746,15 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                                     variant="secondary"
                                                                     className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg"
                                                                     onClick={() => {
-                                                                        setSidebarEditingId(msg.id)
-                                                                        setActiveEditorImage(msg.image_url || null)
-                                                                        setShowEditorPanel(true)
+                                                                        // If editor is already open, just update the image to be inserted
+                                                                        if (showEditorPanel && sidebarEditingId) {
+                                                                            setActiveEditorImage(msg.image_url || null)
+                                                                        } else {
+                                                                            // Otherwise, open editor for this message
+                                                                            setSidebarEditingId(msg.id)
+                                                                            setActiveEditorImage(msg.image_url || null)
+                                                                            setShowEditorPanel(true)
+                                                                        }
                                                                     }}
                                                                 >
                                                                     <PanelRight className="w-4 h-4 mr-2" />
@@ -1020,6 +1013,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         ) : currentEditingMessage ? (
                             // Editor Panel
                             <SidebarEditor
+                                key={currentEditingMessage?.id}
                                 initialData={currentEditingMessage?.content || ''}
                                 onSave={handleSaveEdit}
                                 onClose={handleCloseSidebar}
