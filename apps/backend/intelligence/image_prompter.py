@@ -31,9 +31,9 @@ def get_temperature_for_tone(tone: str) -> float:
     # Medium Creativity (Default)
     return 0.5
 
-async def generate_image_prompt(topic: str, keywords: List[str], tone: str = "neutral", summary: Optional[str] = None) -> str:
+async def generate_image_prompt(topic: str, keywords: List[str], tone: str = "neutral", summary: Optional[str] = None, trends: Optional[List[str]] = None) -> str:
     """
-    Generate a detailed image prompt based on the blog topic, tone, and optional summary.
+    Generate a detailed image prompt based on the blog topic, tone, optional summary, and trends.
     """
     try:
         model = GenerativeModel("gemini-2.0-flash")
@@ -60,6 +60,9 @@ async def generate_image_prompt(topic: str, keywords: List[str], tone: str = "ne
             f"Keywords: {', '.join(keywords)}\n"
             f"Content Tone: {tone}\n"
         )
+
+        if trends:
+             user_prompt += f"Trending Elements to Include: {', '.join(trends)}\n"
         
         if summary:
             # Use the summary to provide specific context

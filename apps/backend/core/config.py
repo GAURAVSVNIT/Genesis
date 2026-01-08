@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_URL: str | None = None
     UPSTASH_REDIS_REST_TOKEN: str | None = None
     
+    # AI Models
+    OPENAI_API_KEY: str | None = None
+    GROQ_API_KEY: str | None = None
+    
     # Legacy Redis URL (for backward compatibility)
     REDIS_URL: str = "redis://localhost:6379/0"
 

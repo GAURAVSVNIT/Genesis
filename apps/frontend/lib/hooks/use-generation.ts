@@ -52,6 +52,9 @@ export function useGeneration(isAuthenticated: boolean) {
             }
             const response = await generateBlog(requestWithGuestId)
             console.log('[DEBUG] Received response:', response)
+            console.log('[DEBUG] Response Keys:', Object.keys(response))
+            console.log('[DEBUG] Model Used:', response.model)
+            console.log('[DEBUG] Image Model Used:', response.image_model)
             setGeneratedContent(response.content)
             setMetrics(response)
 
