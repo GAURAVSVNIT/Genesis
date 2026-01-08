@@ -34,20 +34,57 @@ class ImageCollector:
                 print(f"[ImageCollector] Failed to load Imagen model: {e}")
         return self._model
     
-    async def get_relevant_image(self, query: str) -> Optional[str]:
+    async def get_relevant_image(self, query: str, model_provider: str = "gemini") -> Optional[str]:
         """
-        Generate a relevant image for the given query using Imagen.
-        Returns a Base64 Data URI string.
+        Generate a relevant image for the given query using the selected provider.
+        
+        Args:
+            query: Image generation prompt
+            model_provider: 'gemini' (uses Vertex AI Imagen) or 'gpt' (uses DALL-E 3)
+            
+        Returns:
+             Base64 Data URI string or URL
         """
+        
+        # === OPTION 1: OpenAI DALL-E 3 ===
+        if model_provider.startswith("gpt"):
+            try:
+                print(f"[MODEL INFO] ImageCollector - Using OpenAI DALL-E 3 for: {query}")
+                from openai import OpenAI
+                
+                if not settings.OPENAI_API_KEY:
+                     print("[ImageCollector] Missing OpenAI API Key")
+                     return None
+                     
+                client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                
+                response = client.images.generate(
+                    model="dall-e-3",
+                    prompt=query,
+                    size="1024x1024",
+                    quality="standard",
+                    n=1,
+                    response_format="b64_json" # Get base64 directly
+                )
+                
+                b64_data = response.data[0].b64_json
+                return f"data:image/png;base64,{b64_data}"
+                
+            except Exception as e:
+                print(f"[ImageCollector] OpenAI DALL-E Error: {e}")
+                # Fallback to Vertex AI if OpenAI fails? Or just return None
+                # For now, let's allow fallback to Vertex AI below
+                print("[ImageCollector] Falling back to Vertex AI...")
+
+        # === OPTION 2: Vertex AI Imagen (Default) ===
         if not self.model:
-            print("[ImageCollector] Model not initialized via Vertex AI.")
+            print("[ImageCollector] Vertex AI Model not initialized.")
             return None
             
         try:
-            print(f"[ImageCollector] Generating image for: {query}")
+            print(f"[MODEL INFO] ImageCollector - Using Vertex AI Imagen for: {query}")
             
             # Generate the image
-            # aspect_ratio: "1:1", "3:4", "4:3", "16:9", "9:16"
             response = self.model.generate_images(
                 prompt=query,
                 number_of_images=1,
@@ -58,28 +95,16 @@ class ImageCollector:
             )
             
             if response.images:
-                # Get the first image
                 img = response.images[0]
-                
-                # Check directly if it has a _image_bytes or assumption or standard method
-                # The Vertex AI Image object usually has _image_bytes or can save. 
-                # Let's check documentation or assume standard interface.
-                # Actually, standard way is img._image_bytes or img.save()
-                # Use robust method:
-                
-                img_bytes = img._image_bytes # Accessing raw bytes directly is common in this SDK
-                
-                # Encode to base64
+                img_bytes = img._image_bytes
                 b64_data = base64.b64encode(img_bytes).decode("utf-8")
                 return f"data:image/png;base64,{b64_data}"
                 
         except Exception as e:
-            print(f"[ImageCollector] Generation Error: {str(e)}")
+            print(f"[ImageCollector] Vertex AI Generation Error: {str(e)}")
             with open("debug_redis.log", "a", encoding="utf-8") as f:
                  f.write(f"[ImageCollector] Generation Error: {str(e)}\n")
-            # Return None instead of raising
             return None
             
-        print("[ImageCollector] No images returned (likely blocked by safety filters)")
         return None
 

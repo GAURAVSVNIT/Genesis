@@ -42,11 +42,10 @@ class ContentGenerationAgent:
             model: Vertex AI model to use
             safety_level: Safety filtering level
         """
-        self.vertex_ai = get_vertex_ai_service(
-            project_id=gcp_project_id,
-            model=model,
-            safety_level=safety_level
-        )
+
+        self.gcp_project_id = gcp_project_id
+        self.model = model
+        self.safety_level = safety_level
         self.guardrails = get_message_guardrails(safety_level)
         self.embedder = get_embedding_service()
         self.chunker = get_chunker("medium")
@@ -115,8 +114,11 @@ class ContentGenerationAgent:
             )
             messages = [system_msg] + list(messages)
         
-        # Invoke LLM
-        response = self.vertex_ai.invoke(messages)
+        # Invoke LLM via Factory
+        print(f" [ContentAgent] Invoking LLM via Factory for model: {self.model}")
+        from core.llm_factory import LLMFactory
+        llm = LLMFactory.get_llm(self.model)
+        response = llm.invoke(messages)
         
         # Add response to messages
         state["messages"] = list(state["messages"]) + [response]
@@ -232,6 +234,7 @@ def create_agent(
     Returns:
         ContentGenerationAgent instance
     """
+    print(f"[MODEL INFO] Initializing ContentAgent with Model: {model}")
     return ContentGenerationAgent(
         gcp_project_id=gcp_project_id,
         model=model,

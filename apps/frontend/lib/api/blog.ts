@@ -14,6 +14,7 @@ export interface BlogRequest {
     format?: 'markdown' | 'html' | 'plain' | 'structured'
     max_words?: number
     include_sections?: boolean
+    model?: string
 }
 
 export interface BlogResponse {
@@ -40,10 +41,13 @@ export interface BlogResponse {
     includes_alternatives?: boolean
     includes_implications?: boolean
     analysis_depth?: string
+    model?: string
+    image_model?: string
 }
 
 export async function generateBlog(request: BlogRequest): Promise<BlogResponse> {
     try {
+        console.log('[DEBUG] Generating blog using backend:', BACKEND_URL)
         const response = await fetch(`${BACKEND_URL}/v1/content/generate`, {
             method: 'POST',
             headers: {

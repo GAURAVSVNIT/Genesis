@@ -59,6 +59,30 @@ class SEOOptimizer:
         self.metadata_generator = MetadataGenerator(model_name=self.config.model_name)
         self.suggestion_generator = SuggestionGenerator()
     
+    async def extract_keywords(self, text: str, max_keywords: int = 5) -> List[str]:
+        """Extract main keywords from text using AI."""
+        if not text:
+            return []
+            
+        prompt = f"""Extract the top {max_keywords} most important SEO keywords from the following text to guide content generation.
+        
+        Text: "{text}"
+        
+        Return ONLY a comma-separated list of keywords. No numbering or other text."""
+        
+        try:
+            response = await self.model.ainvoke(prompt)
+            keywords = [k.strip() for k in response.content.split(",") if k.strip()]
+            return keywords
+        except Exception as e:
+            print(f"Keyword extraction failed: {e}")
+            # Fallback to simple splitting
+            return [w for w in text.split() if len(w) > 4][:max_keywords]
+
+    async def optimize_content(self, content: str, target_keyword: str) -> Dict:
+        """Wrapper for optimize method to maintain compatibility."""
+        return await self.optimize(content, keywords=[target_keyword])
+
     async def optimize(
         self,
         content: str,

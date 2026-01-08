@@ -67,8 +67,16 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     const [showCheckpoints, setShowCheckpoints] = useState(false)
     const [activeEditorImage, setActiveEditorImage] = useState<string | null>(null)
     const [conversationId] = useState(() => crypto.randomUUID())
+    const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash')
     const userId = user?.id || 'guest-user-id';
     const scrollRef = useRef<HTMLDivElement>(null)
+
+    const modelOptions = [
+        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+        { value: 'gpt-4o', label: 'GPT-4o' },
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Groq)' },
+        { value: 'mixtral-8x7b', label: 'Mixtral 8x7B (Groq)' },
+    ]
 
     const { generate, isLoading, error } = useGeneration(isAuthenticated)
 
@@ -301,7 +309,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             prompt: finalPrompt,
             intent: msg.type, // Pass the detected intent!
             tone: msg.tone || 'informative',
-            length: msg.length || 'medium'
+            length: msg.length || 'medium',
+            model: selectedModel
         })
 
 
@@ -518,7 +527,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 <>
                                     <div className="flex gap-1 bg-secondary/30 border border-border/50 p-1 shadow-inner rounded-lg hidden md:flex backdrop-blur-sm">
                                         <Select value={tone} onValueChange={setTone}>
-                                            <SelectTrigger className="w-[130px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
+                                            <SelectTrigger className="w-[120px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
@@ -531,13 +540,26 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                         </Select>
                                         <div className="w-px bg-border/40 my-1"></div>
                                         <Select value={length} onValueChange={setLength}>
-                                            <SelectTrigger className="w-[110px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
+                                            <SelectTrigger className="w-[100px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
                                                 <SelectItem value="short">Short</SelectItem>
                                                 <SelectItem value="medium">Medium</SelectItem>
                                                 <SelectItem value="long">Long</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="w-px bg-border/40 my-1"></div>
+                                        <Select value={selectedModel} onValueChange={setSelectedModel}>
+                                            <SelectTrigger className="w-[150px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                {modelOptions.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -672,11 +694,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-3 gap-4">
                                             <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
                                                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Tone</p>
                                                 <Select value={tone} onValueChange={setTone}>
-                                                    <SelectTrigger className="w-[120px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                    <SelectTrigger className="w-[110px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
@@ -695,9 +717,25 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
-                                                        <SelectItem value="short">📝 Short</SelectItem>
-                                                        <SelectItem value="medium">📄 Medium</SelectItem>
-                                                        <SelectItem value="long">📚 Long</SelectItem>
+                                                        <SelectItem value="short">Short</SelectItem>
+                                                        <SelectItem value="medium">Medium</SelectItem>
+                                                        <SelectItem value="long">Long</SelectItem>
+                                                        <SelectItem value="extended">Extended</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
+                                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Model</p>
+                                                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                                                    <SelectTrigger className="w-[130px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
+                                                        {modelOptions.map(opt => (
+                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>

@@ -128,9 +128,10 @@ export async function listCheckpoints(
     user_id: string
 ): Promise<CheckpointResponse[]> {
     try {
-        const response = await fetch(
-            `${BACKEND_URL}/v1/checkpoints/list/${conversation_id}?user_id=${user_id}`
-        )
+        const url = `${BACKEND_URL}/v1/checkpoints/list/${conversation_id}?user_id=${user_id}`
+        console.log('[DEBUG] listing checkpoints:', url)
+        
+        const response = await fetch(url)
 
         if (!response.ok) {
             throw new Error(`Failed to list checkpoints: ${response.statusText}`)

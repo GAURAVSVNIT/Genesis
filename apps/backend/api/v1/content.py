@@ -19,6 +19,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 import re
 
 from graph.content_agent import create_agent
+from core.config import settings
 from core.rate_limiter import RATE_LIMITERS
 from core.upstash_redis import RedisManager
 from core.response_cache import CACHES
@@ -173,8 +174,10 @@ class GenerateContentRequest(BaseModel):
     include_alternatives: bool = True  # Include alternative perspectives
     include_implications: bool = True  # Include real-world implications
     format: str = "markdown"  # 'markdown', 'html', 'plain', 'structured'
+
     max_words: Optional[int] = None  # Maximum word count
     include_sections: bool = True  # Include section breaks
+    model: str = "gemini-2.0-flash"  # Model selection
 
 
 class GenerateContentResponse(BaseModel):
@@ -200,6 +203,8 @@ class GenerateContentResponse(BaseModel):
     seo_data: Optional[dict] = None
     trend_data: Optional[dict] = None
     image_url: Optional[str] = None
+    model: Optional[str] = None
+    image_model: Optional[str] = None
     # Tone and Style Info
     tone_applied: str = "analytical"
     includes_critique: bool = True
@@ -372,7 +377,7 @@ async def generate_content(
         
         # ========== STEP 3: CHECK PROMPT CACHE FOR EXACT MATCH ==========
         cached_prompt = db.query(PromptCache)\
-            .filter_by(prompt_hash=prompt_hash)\
+            .filter_by(prompt_hash=prompt_hash, model=request.model)\
             .first()
 
         # ... (keep existing cache hit logic) ...
@@ -438,7 +443,7 @@ async def generate_content(
                 platform="api",
                 generated_content={
                     "text": cached_prompt.response_text,
-                    "model": "gemini-2.0-flash",
+                    "model": cached_prompt.model,
                     "timestamp": datetime.utcnow().isoformat(),
                     "source": "cache",
                     "seo_data": seo_result
@@ -477,8 +482,8 @@ async def generate_content(
                 image_search_query = keywords[0] if keywords else request.prompt[:20]
                 
                 # Fetch image
-                print(f" [Cache Hit] Fetching image for: {image_search_query}")
-                image_url = await image_collector.get_relevant_image(image_search_query)
+                print(f" [Cache Hit] Fetching image for: {image_search_query} with model: {request.model}")
+                image_url = await image_collector.get_relevant_image(image_search_query, model_provider=request.model)
             except Exception as e:
                 print(f"[Cache Hit] Image generation failed: {e}")
                 
@@ -497,7 +502,15 @@ async def generate_content(
                 cached=True,
                 cache_hit_rate=user_metrics.cache_hit_rate if user_metrics else 0.0,
                 generation_time_ms=elapsed_ms,
-                image_url=image_url
+                image_url=image_url,
+                model=cached_prompt.model if getattr(cached_prompt, 'model', None) else "cached-model",
+                image_model="dall-e-3" if getattr(cached_prompt, 'model', None) and cached_prompt.model.startswith("gpt") else "vertex-imagen",
+                # Add defaulting for missing fields on cache hit
+                seo_score=0.0,
+                uniqueness_score=0.0,
+                trend_data=None,
+                cost_usd=0.0,
+                engagement_score=0.0
             )
         
         # ========== STEP 4: GENERATE NEW CONTENT (CACHE MISS) ==========
@@ -509,11 +522,12 @@ async def generate_content(
             get_formatted_output_prompt
         )
         
-        config = AgentConfig(
-            model="gemini-2.0-flash",
-            safety_level=request.safety_level,
+        # Create agent with selected model
+        agent = create_agent(
+            gcp_project_id=settings.GCP_PROJECT_ID,
+            model=request.model,
+            safety_level=request.safety_level
         )
-        agent = get_agent(config)
         
         # Convert conversation history
         history = []
@@ -524,13 +538,53 @@ async def generate_content(
                 elif msg.role == "assistant":
                     history.append(AIMessage(content=msg.content))
         
+        # ========== STEP 3.5: EXTRACT KEYWORDS & ANALYZE TRENDS (MOVED UP FOR CONTEXT SYNC) ==========
+        # Extract keywords early for trend analysis
+        from intelligence.seo.optimizer import SEOOptimizer
+        from intelligence.seo.config import SEOConfig
+        
+        # Use a supported model for SEO optimization (Gemini) regardless of the content generation model
+        # This prevents errors when using models like Llama which are not supported by the SEO optimizer's underlying specific Google implementation
+        seo_optimizer = SEOOptimizer(config=SEOConfig(model_name="gemini-2.0-flash"))
+        
+        # Extract keywords for this prompt
+        keywords = await seo_optimizer.extract_keywords(request.prompt)
+        print(f" [SEO] Extracted keywords for context: {keywords}")
+
+        # Initialize trend services
+        from intelligence.trend_collector import TrendCollector
+        from intelligence.trend_analyzer import TrendAnalyzer
+        from intelligence.image_collector import ImageCollector
+        
+        trend_collector = TrendCollector(use_cache=True)
+        trend_analyzer = TrendAnalyzer()
+        image_collector = ImageCollector()
+        
+        # Fetch and analyze trends
+        print(f" [Trends] Starting trend collection for keywords: {keywords}")
+        trend_data = await trend_collector.collect_all_trends(keywords)
+        
+        print(f" [Trends] Analyzing trends for relevance to content...")
+        trend_analysis = await trend_analyzer.analyze_for_generation(request.prompt, keywords, trend_data)
+        
+        # Extract trend insights to enrich the prompt
+        trend_context = ""
+        if trend_analysis.get("trending_topics"):
+            top_trends = [t.get("title", "") for t in trend_analysis["trending_topics"][:3]]
+            formatted_trends = ", ".join(top_trends)
+            trend_context = f"\n\nCONTEXT FROM CURRENT TRENDS:\nThe following related topics are currently trending and should be subtly reflected in the content where relevant: {formatted_trends}."
+            if trend_analysis.get("recommendations"):
+                 recs = "; ".join(trend_analysis["recommendations"][:2])
+                 trend_context += f"\nSpecific Trend Insights: {recs}"
+
         # Build enhanced prompt with tone and style instructions
         enhanced_system_prompt = get_enhanced_system_prompt(
             base_topic=request.prompt,
             tone=request.tone,
             add_critical_thinking=request.include_critique,
             include_multiple_perspectives=request.include_alternatives
-        )
+        ) + trend_context
+
         
         # Add enrichment instructions
         enrichment_instruction = ""
@@ -552,12 +606,21 @@ async def generate_content(
             # If there's history, prepend the enhanced system message
             history = [SystemMessage(content=enhanced_prompt)] + history
         
-        print(f"[DEBUG] GenerateContentRequest - Intent: {request.intent}, Prompt: {request.prompt[:50]}...")
+        print(f"[MODEL INFO] GenerateContentRequest - Model: {request.model}, Intent: {request.intent}, Prompt: {request.prompt[:50]}...")
         
         # Check cache early
         # Generate cache key based on prompt and parameters
+        
+        # If no history, we must pass the enhanced prompt as the user message for it to take effect
+        # Otherwise it's just a system message that might be ignored by some agent implementations if not passed correctly
+        final_user_message = request.prompt
+        if not history:
+             # If no history, wrap the prompt with system instructions as the input
+             # or better, just pass the enhanced prompt as the user message for this turn
+             final_user_message = enhanced_prompt
+        
         content = agent.invoke(
-            user_message=request.prompt,
+            user_message=final_user_message,
             conversation_history=history,
         )
         
@@ -581,7 +644,7 @@ async def generate_content(
                 title=request.prompt[:100],  # First 100 chars as title
                 description=None,
                 agent_type="text-generation",
-                model_used="gemini-2.0-flash",
+                model_used=request.model,
                 system_prompt=None,
                 temperature=7,  # Default
                 max_tokens=None,
@@ -605,7 +668,7 @@ async def generate_content(
                 role="user",
                 content=request.prompt,
                 tokens=len(request.prompt.split()),
-                model="gemini-2.0-flash",
+                model=request.model,
                 created_at=datetime.utcnow()
             )
             db.add(user_message_main)
@@ -617,7 +680,7 @@ async def generate_content(
                 role="assistant",
                 content=content if isinstance(content, str) else str(content),
                 tokens=len(str(content).split()),
-                model="gemini-2.0-flash",
+                model=request.model,
                 created_at=datetime.utcnow()
             )
             db.add(assistant_message_main)
@@ -713,7 +776,7 @@ async def generate_content(
             prompt_text=request.prompt,
             response_text=content_str,
             response_hash=response_hash,
-            model="gemini-2.0-flash",
+            model=request.model,
             hits=1,  # First hit
             generation_time=int((time.time() - start_time) * 1000),
             created_at=datetime.utcnow()
@@ -770,35 +833,20 @@ async def generate_content(
         else:
              safe_debug_log(f"[WARN] No guest_id provided, skipping Redis cache\n")
         
-        # ========== STEP 8A: RUN ADVANCED SEO OPTIMIZATION ==========
+          # ========== STEP 8A: SEO OPTIMIZATION (POST-GENERATION) ==========
+        # (Keywords extracted earlier at Step 3.5)
         
-        # Extract keywords
-        keywords = extract_keywords_from_prompt(request.prompt)
+        # Optimize the generated content
+        print(f" [SEO] optimizing generated content...")
+        seo_result = await seo_optimizer.optimize_content(
+             content=content_str,
+             target_keyword=keywords[0] if keywords else request.prompt[:20]
+        )
         
-        # ========== STEP 8B: ANALYZE TRENDS ==========
-        # Initialize trend services
-        from intelligence.trend_collector import TrendCollector
-        from intelligence.trend_analyzer import TrendAnalyzer
-        from intelligence.image_collector import ImageCollector
-        
-        trend_collector = TrendCollector(use_cache=True)
-        trend_analyzer = TrendAnalyzer()
-        image_collector = ImageCollector()
-        
-        # Fetch and analyze trends
-        # We do this concurrently or await it. Since it's async, we await.
-        # This adds context to the prompt and the SEO optimizer.
-        print(f" [Trends] Starting trend collection for keywords: {keywords}")
-        print(f" [Trends] Using configured API keys for active sources...")
-        
-        trend_data = await trend_collector.collect_all_trends(keywords)
-        
-        topic_count = len(trend_data.get("trending_topics", []))
-        print(f" [Trends] Successfully collected {topic_count} trending topics across platforms.")
-        
-        print(f" [Trends] Analyzing trends for relevance to content...")
-        trend_analysis = await trend_analyzer.analyze_for_generation(request.prompt, keywords, trend_data)
-        print(f" [Trends] Analysis complete. Generated {len(trend_analysis.get('recommendations', []))} suggestions.")
+        # Calculate SEO Score (0-100 normalized to 0-1)
+        seo_score = min(max(seo_result.get("seo_score", 50) / 100.0, 0.0), 1.0)
+        uniqueness_score = 0.85 # Placeholder until integrated
+        engagement_score = 0.8 # Placeholder until integrated
         
         # ========== STEP 8C: IMAGE GENERATION ==========
         # Use AI Art Director for enhanced prompt
@@ -820,7 +868,13 @@ async def generate_content(
                     summary_context = content_str[:1000] if content_str else None
                 
                 # Generate enhanced prompt
-                image_query = await generate_image_prompt(request.prompt, keywords, request.tone, summary=summary_context)
+                image_query = await generate_image_prompt(
+                    topic=request.prompt, 
+                    keywords=keywords, 
+                    tone=request.tone, 
+                    summary=summary_context,
+                    trends=top_trends if 'top_trends' in locals() else None
+                )
                 print(f" [Image] Generative Query: {image_query[:50]}...")
                 
                 # Fetch image using enhanced query
@@ -853,13 +907,13 @@ async def generate_content(
             if not relevant_image_url: # Only if not already fetched
                  image_search_query = keywords[0] if keywords else request.prompt[:20]
                  print(f"[Images] Fetching image for: {image_search_query}")
-                 relevant_image_url = await image_collector.get_relevant_image(image_search_query)
+                 relevant_image_url = await image_collector.get_relevant_image(image_search_query, model_provider=request.model)
                  
                  # Retry with safer abstract prompt if failed
                  if not relevant_image_url:
                      print(f"[Images] Primary query failed. Retrying with abstract concept...")
                      safe_query = f"Abstract representation of {image_search_query}"
-                     relevant_image_url = await image_collector.get_relevant_image(safe_query)
+                     relevant_image_url = await image_collector.get_relevant_image(safe_query, model_provider=request.model)
 
                  if relevant_image_url:
                      print(f" [Images] Found image: {relevant_image_url}")
@@ -979,7 +1033,32 @@ async def generate_content(
         # ========== STEP 8D: CALCULATE COST ==========
         input_tokens = len(request.prompt.split())
         output_tokens = len(content_str.split())
-        request_cost = calculate_cost("gemini-2.0-flash", input_tokens, output_tokens)
+        
+        # Calculate cost
+        token_cost_input = 0
+        token_cost_output = 0
+        
+        # Pricing (Approximate)
+        if request.model.startswith("gpt-4"):
+            token_cost_input = (input_tokens / 1000000) * 5.00
+            token_cost_output = (output_tokens / 1000000) * 15.00
+        elif request.model.startswith("gpt-3.5"):
+            token_cost_input = (input_tokens / 1000000) * 0.50
+            token_cost_output = (output_tokens / 1000000) * 1.50
+        else:
+            # Gemini defaults (estimated)
+            token_cost_input = (input_tokens / 1000000) * 0.10
+            token_cost_output = (output_tokens / 1000000) * 0.40
+
+        # Add Image Cost
+        image_cost = 0.0
+        if relevant_image_url:
+            if request.model.startswith("gpt"):
+                image_cost = 0.040 # DALL-E 3 Standard
+            else:
+                image_cost = 0.020 # Vertex AI Imagen
+
+        request_cost = token_cost_input + token_cost_output + image_cost
         
         # ========== STEP 8E: STORE IN GENERATED_CONTENT (MAIN TABLE - FOR ALL USERS) ==========
         generated_content_id = None
@@ -995,7 +1074,7 @@ async def generate_content(
             platform="api",
             generated_content={
                 "text": seo_result.get("optimized_content", content_str), # Use optimized version if available
-                "model": "gemini-2.0-flash",
+                "model": request.model,
                 "timestamp": datetime.utcnow().isoformat(),
                 "seo_data": seo_result # Store full rich SEO data
             },
@@ -1104,6 +1183,8 @@ async def generate_content(
             seo_data=seo_result,
             trend_data=trend_analysis,
             image_url=relevant_image_url,
+            model=request.model,
+            image_model="dall-e-3" if request.model.startswith("gpt") else "vertex-imagen",
             #  Include tone and analysis info
             tone_applied=request.tone,
             includes_critique=request.include_critique,
