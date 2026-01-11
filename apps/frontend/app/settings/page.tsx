@@ -22,18 +22,17 @@ export default function SettingsPage() {
         const params = new URLSearchParams(window.location.search);
         const state = params.get('state');
         if (state) {
-            setUserId(state);
+            setTimeout(() => setUserId(state), 0);
         } else {
             // Fallback: try to grab from local storage or guest session if available
-            // For now, if no state, we might just be viewing settings.
-            // Let's assume guest/user is managed elsewhere, but for this specific fix,
-            // we primarily need to support the Redirect hitting this page.
-            // If we don't have a userId, we can't list connections easily unless we persist it.
             const storedParams = localStorage.getItem('genesis-guest-params');
             if (storedParams) {
                 try {
                     const parsed = JSON.parse(storedParams);
-                    if (parsed.userId) setUserId(parsed.userId);
+                    if (parsed.userId) {
+                        const uid = parsed.userId;
+                        setTimeout(() => setUserId(uid), 0);
+                    }
                 } catch (e) { }
             }
         }

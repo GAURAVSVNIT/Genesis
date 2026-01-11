@@ -15,7 +15,7 @@ export function useGeneration(isAuthenticated: boolean) {
     useEffect(() => {
         // Update remaining generations after hydration
         setRemainingGenerationsState(getRemainingGenerations())
-        
+
         if (!isAuthenticated) {
             let id = localStorage.getItem('guestId')
             if (!id) {
@@ -38,7 +38,6 @@ export function useGeneration(isAuthenticated: boolean) {
 
         try {
             console.log('[DEBUG] Starting blog generation with request:', request)
-            const promptMessage = `Generate a ${request.tone} ${request.length} blog post about: ${request.prompt}`
 
             // Note: The backend /v1/content/generate already saves all conversations and messages
             // to both conversation_cache and message_cache tables. No need for separate frontend calls.
@@ -65,7 +64,7 @@ export function useGeneration(isAuthenticated: boolean) {
                 incrementUsage()
                 setRemainingGenerationsState(getRemainingGenerations())
             }
-            
+
             return response
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to generate content')

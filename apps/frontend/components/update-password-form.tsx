@@ -57,7 +57,7 @@ export function UpdatePasswordForm({ className, ...props }: React.ComponentProps
                                     placeholder="New password"
                                     required
                                     value={password}
-                                    onChange={(e: { target: { value: any } }) => setPassword(e.target.value)}
+                                    onChange={(e) => setPassword(e.target.value)}
                                 />
                             </div>
                             {error && <p className="text-sm text-red-500">{error}</p>}

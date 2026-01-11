@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Send } from 'lucide-react';
-import { toast } from 'sonner';
+
 
 interface ShareLinkedInModalProps {
     isOpen: boolean;
@@ -64,6 +64,7 @@ export function ShareLinkedInModal({
                 })
                 .finally(() => setIsLoadingTargets(false));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, userId]);
 
     const handleShare = async () => {
@@ -76,10 +77,11 @@ export function ShareLinkedInModal({
                 onClose();
                 setStatus('idle');
             }, 2000);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
             setStatus('error');
-            setErrorMessage(error.response?.data?.detail || "Failed to share post.");
+            const err = error as { response?: { data?: { detail?: string } } };
+            setErrorMessage(err.response?.data?.detail || "Failed to share post.");
         } finally {
             setIsLoading(false);
         }
@@ -111,7 +113,7 @@ export function ShareLinkedInModal({
                                     <label className="text-sm font-medium">Post As</label>
                                     <Select
                                         value={selectedTarget}
-                                        onValueChange={setSelectedTarget}
+                                        onValueChange={(v) => setSelectedTarget(v)}
                                         disabled={isLoading || isLoadingTargets}
                                     >
                                         <SelectTrigger>
