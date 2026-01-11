@@ -6,7 +6,7 @@ class LLMFactory:
     """Factory for creating LLM instances based on provider/model."""
     
     @staticmethod
-    def get_llm(model_name: str = "gemini-2.0-flash", temperature: float = 0.7) -> BaseChatModel:
+    def get_llm(model_name: str = "gemini-2.5-flash", temperature: float = 0.7) -> BaseChatModel:
         """
         Get an LLM instance.
         
@@ -67,7 +67,7 @@ class LLMFactory:
             print(f"⚠️ Unknown model '{model_name}', falling back to Gemini")
             from langchain_google_vertexai import ChatVertexAI
             return ChatVertexAI(
-                model_name="gemini-2.0-flash",
+                model_name="gemini-2.5-flash",
                 temperature=temperature,
                 project=settings.GCP_PROJECT_ID
             )

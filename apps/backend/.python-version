@@ -1,1 +1,112 @@
-3.10.11
+3.12
+turbo 2.6.3
+
+• Packages in scope: @repo/eslint-config, @repo/typescript-config, @repo/ui, backend, docs, frontend
+• Running dev in 6 packages
+• Remote caching disabled
+
+ *  History restored 
+
+PS D:\padhai\GENECIS> 
+ *  History restored 
+
+PS D:\padhai\GENECIS> 
+ *  History restored 
+
+PS D:\padhai\GENECIS> git status
+fatal: not a git repository (or any of the parent directories): .git
+PS D:\padhai\GENECIS> cd .\Genesis\
+PS D:\padhai\GENECIS\Genesis> git status
+y of 'apps/backend/.python-version', LF will be replaced by CRLF the next time Git touches it
+Saved working directory and index state WIP on main: eb96711 improvement: blog formatted
+PS D:\padhai\GENECIS\Genesis> git add .
+PS D:\padhai\GENECIS\Genesis> git stash
+No local changes to save
+PS D:\padhai\GENECIS\Genesis> git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+PS D:\padhai\GENECIS\Genesis> git pull origin main
+fatal: unable to access 'https://github.com/GAURAVSVNIT/Genesis.git/': Could not resolve host: github.com
+PS D:\padhai\GENECIS\Genesis> git pull origin main
+From https://github.com/GAURAVSVNIT/Genesis
+ * branch            main       -> FETCH_HEAD
+Already up to date.
+PS D:\padhai\GENECIS\Genesis> pnpm install
+Scope: all 7 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+╭────────────────────────────────────────────────────────────╮│                                                            ││             Update available! 9.0.0 → 10.28.0.             ││                         Changelog:                         ││     https://github.com/pnpm/pnpm/releases/tag/v10.28.0     ││             Run "pnpm add -g pnpm" to update.              ││                                                            ││   Follow @pnpmjs for updates: https://twitter.com/pnpmjs   ││                                                            │╰────────────────────────────────────────────────────────────╯
+
+
+devDependencies:
++ prettier 3.7.4
++ turbo 2.6.3
++ typescript 5.9.2
+
+Done in 2.1s
+PS D:\padhai\GENECIS\Genesis> pnpm run dev
+
+> genesis@ dev D:\padhai\GENECIS\Genesis
+> turbo run dev
+
+────────────────────────────────────────────────────────────  
+
+Update available v2.6.3 ≫ v2.7.3
+Changelog: https://github.com/vercel/turborepo/releases/tag/v2.7.3
+Run "pnpm dlx @turbo/codemod@latest update" to update
+
+Follow @turborepo for updates: https://x.com/turborepo        
+────────────────────────────────────────────────────────────  
+turbo 2.6.3
+
+ WARNING  stale pid file at "C:\\Users\\Rushang\\AppData\\Local\\Temp\\turbod\\4934d42664798c06\\turbod.pid"
+• Packages in scope: @repo/eslint-config, @repo/typescript-config, @repo/ui, backend, docs, frontend
+• Running dev in 6 packages
+• Remote caching disabled
+┌─ docs#dev > cache bypass, force executing 71f4d8069ad5676f  
+
+> docs@0.1.0 dev D:\padhai\GENECIS\Genesis\ap
+ps\docs
+> next dev --port 3001
+
+^C
+└─ docs#dev ──
+┌─ frontend#dev > cache bypass, force executing 81f6af1c0cf21482
+
+> frontend@0.1.0 dev D:\padhai\GENECIS\Genesi
+s\apps\frontend
+> next dev
+
+^C ELIFECYCLE  Command failed with exit code
+3221225786.
+└─ frontend#dev ──
+┌─ backend#dev > cache bypass, force executing 071458529f6cb88f
+
+> backend@ dev D:\padhai\GENECIS\Genesis\apps
+\backend
+> uv run uvicorn main:app --host 0.0.0.0 --po
+rt 8000 --reload
+
+Using CPython 3.10.11
+error: The Python request from `.python-versi
+on` resolved to Python 3.10.11, which is inco
+mpatible with the project's Python requiremen
+t: `>=3.12` (from `project.requires-python`)
+Use `uv python pin` to update the `.python-ve
+rsion` file to a compatible version
+ ELIFECYCLE  Command failed with exit code 2.
+ WARN   Local package.json exists, but node_m
+odules missing, did you mean to install?
+
+command finished with error: command (D:\padh
+ai\GENECIS\Genesis\apps\backend) C:\Users\Rus
+hang\AppData\Local\pnpm\.tools\pnpm\9.0.0\bin
+\pnpm.CMD run dev exited (2)
+└─ backend#dev ──
+  × Internal errors encountered: unable to determine why      
+  │ task exited,unable to determine why task exited
+
+ ELIFECYCLE  Command failed with exit code 1.

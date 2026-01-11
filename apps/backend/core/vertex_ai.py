@@ -23,7 +23,7 @@ class VertexAIConfig:
         self,
         project_id: Optional[str] = None,
         location: str = "us-central1",
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         temperature: float = 0.7,
         max_output_tokens: int = 2048,
     ):
@@ -33,7 +33,7 @@ class VertexAIConfig:
         Args:
             project_id: GCP project ID (from environment if not provided)
             location: GCP region
-            model: Model name (e.g., "gemini-2.0-flash", "gemini-1.5-pro")
+            model: Model name (e.g., "gemini-2.5-flash", "gemini-1.5-pro")
             temperature: Model temperature (0-2)
             max_output_tokens: Max tokens in response
         """
@@ -211,7 +211,7 @@ class VertexAIAgentState:
 
 def create_vertex_ai_service(
     project_id: Optional[str] = None,
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-2.5-flash",
     safety_level: str = "permissive"  # Changed from 'moderate' for development
 ) -> VertexAIService:
     """
@@ -238,7 +238,7 @@ _vertex_ai_service: Optional[VertexAIService] = None
 
 def get_vertex_ai_service(
     project_id: Optional[str] = None,
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-2.5-flash",
     safety_level: str = "permissive"  # Changed from 'moderate' for development
 ) -> VertexAIService:
     """Get or create Vertex AI service instance."""
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     # Initialize service
     service = get_vertex_ai_service(
         project_id="your-gcp-project",
-        model="gemini-2.0-flash"
+        model="gemini-2.5-flash"
     )
     
     # Test message
