@@ -778,11 +778,11 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                                 alt="Generated visual"
                                                                 className="w-full h-auto object-cover max-h-[400px]"
                                                             />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/image:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-3">
                                                                 <Button
                                                                     size="sm"
                                                                     variant="secondary"
-                                                                    className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg"
+                                                                    className="bg-white/95 text-black hover:bg-white shadow-lg"
                                                                     onClick={() => {
                                                                         // If editor is already open, just update the image to be inserted
                                                                         if (showEditorPanel && sidebarEditingId) {
@@ -801,7 +801,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="secondary"
-                                                                    className="bg-white/90 text-black hover:bg-white transform translate-y-4 group-hover/image:translate-y-0 transition-all duration-300 shadow-lg delay-75"
+                                                                    className="bg-white/95 text-black hover:bg-white shadow-lg"
                                                                     onClick={async () => {
                                                                         try {
                                                                             toast.info("Regenerating image...")
