@@ -14,8 +14,8 @@ class SEOConfig(BaseModel):
     
     # Model Settings
     model_name: str = Field(
-        default="gemini-1.5-pro",
-        description="AI model for content optimization"
+        default="gemini-2.5-flash",
+        description="AI model for content optimization (gemini-2.5-flash, gpt-4o-mini, etc.)"
     )
     temperature: float = Field(
         default=0.7,

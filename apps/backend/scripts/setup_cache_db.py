@@ -206,7 +206,7 @@ def show_data_flow():
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                   CONTENT GENERATION                                     │
 │           ┌──────────────────────────────────────────┐                   │
-│           │ Call: Vertex AI (gemini-2.0-flash)       │                   │
+│           │ Call: Vertex AI (gemini-2.5-flash)       │                   │
 │           │ Pass: prompt, platform, tone, etc        │                   │
 │           │ Get: generated content + tokens          │                   │
 │           └──────────────────────────────────────────┘                   │

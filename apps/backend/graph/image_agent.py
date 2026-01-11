@@ -15,19 +15,22 @@ async def generate_image(state: Dict[str, Any]):
         prompt = state.get("prompt", "")
         keywords = state.get("keywords", [])
         tone = state.get("tone", "neutral")
+        trends = state.get("trends", [])
         
         # Get blog content if available to use as specific context
         blog_content = state.get("blog", "")
-        summary_context = blog_content[:1000] if blog_content else None
+        summary_context = blog_content[:1500] if blog_content else None
         
         # Use AI Art Director to generate specific visual prompt
-        print(f"[Image Agent] Consulting Art Director for: {prompt[:30]}...")
-        query = await generate_image_prompt(prompt, keywords, tone, summary=summary_context)
+        print(f"[Image Agent] Consulting Art Director for: {prompt[:30]}... (with {len(trends)} trends)")
+        # Default to gemini for image agent unless model is in state
+        model = state.get("model", "gemini-2.5-flash")
+        query = await generate_image_prompt(prompt, keywords, tone, summary=summary_context, trends=trends, model=model)
         
         print(f"[Image Agent] Generative Query: {query[:50]}...")
         
         collector = ImageCollector()
-        image_url = await collector.get_relevant_image(query)
+        image_url = await collector.get_relevant_image(query, model_provider="gpt")
         
         if image_url:
             print("[Image Agent] Image generated successfully.")
