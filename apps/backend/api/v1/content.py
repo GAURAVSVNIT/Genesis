@@ -257,7 +257,7 @@ class GenerateContentRequest(BaseModel):
     prompt: str
     intent: str = "chat" # 'chat', 'blog', 'edit', 'rewrite', 'image'
     conversation_history: Optional[List[Message]] = None
-    safety_level: str = "moderate"  # 'strict', 'moderate', 'permissive'
+    safety_level: str = "strict"  # 'strict', 'moderate', 'permissive'
     guestId: Optional[str] = None
     tone: str = "analytical"  # 'analytical', 'opinionated', 'critical', 'investigative', 'contrarian'
     include_critique: bool = True  # Include critical analysis
@@ -311,7 +311,7 @@ class AgentConfig(BaseModel):
     """Configuration for the agent."""
     gcp_project_id: Optional[str] = None
     model: str = "gemini-2.5-flash"
-    safety_level: str = "moderate"
+    safety_level: str = "strict"
 
 
 # Agent instance
@@ -409,6 +409,33 @@ async def generate_content(
     
     import time
     start_time = time.time()
+    
+    # ========== GUARDRAILS CHECK #1: INPUT VALIDATION (BEFORE EVERYTHING) ==========
+    print(f"[GUARDRAILS #1] Validating input prompt before any processing...")
+    print(f"[GUARDRAILS #1] Prompt: {request.prompt[:100]}...")
+    print(f"[GUARDRAILS #1] Safety level: {request.safety_level}")
+    
+    # Create temporary guardrails instance for early validation
+    from core.guardrails import get_message_guardrails
+    early_guardrails = get_message_guardrails(level=request.safety_level, use_llm=True)
+    early_validation = early_guardrails.validate_user_message(request.prompt, role="user")
+    
+    print(f"[GUARDRAILS #1] Result: is_safe={early_validation.is_safe}, reason={early_validation.reason}, score={early_validation.score}")
+    
+    if not early_validation.is_safe:
+        print(f"[GUARDRAILS #1] ❌ BLOCKED - {early_validation.reason}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Content blocked by safety filters",
+                "reason": early_validation.reason,
+                "score": early_validation.score,
+                "category": "input_validation",
+                "message": "Your request contains content that violates our safety guidelines. Please rephrase and try again."
+            }
+        )
+    
+    print(f"[GUARDRAILS #1] ✅ PASSED - Input is safe")
     
     try:
         # Import required modules at function level
@@ -720,7 +747,30 @@ async def generate_content(
             conversation_history=history,
         )
         
-        # Get safety report
+        # ========== GUARDRAILS CHECK #2: OUTPUT VALIDATION (AFTER GENERATION) ==========
+        print(f"[GUARDRAILS #2] Validating generated output...")
+        print(f"[GUARDRAILS #2] Content length: {len(content)} chars")
+        print(f"[GUARDRAILS #2] Content preview: {content[:200]}...")
+        
+        output_validation = agent.guardrails.validate_user_message(content, role="assistant")
+        print(f"[GUARDRAILS #2] Result: is_safe={output_validation.is_safe}, reason={output_validation.reason}, score={output_validation.score}")
+        
+        if not output_validation.is_safe:
+            print(f"[GUARDRAILS #2] ❌ BLOCKED - Generated content violated safety guidelines: {output_validation.reason}")
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "Generated content blocked by safety filters",
+                    "reason": output_validation.reason,
+                    "score": output_validation.score,
+                    "category": "output_validation",
+                    "message": "The AI-generated content violated our safety guidelines. Please try rephrasing your request."
+                }
+            )
+        
+        print(f"[GUARDRAILS #2] ✅ PASSED - Output is safe")
+        
+        # Get safety report for logging
         safety_report = agent.guardrails.get_safety_report(request.prompt)
         
         # ========== STEP 5-6: STORE IN CONVERSATION & MESSAGE CACHE ==========
