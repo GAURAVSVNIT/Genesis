@@ -24,12 +24,12 @@ export default function VerifyEmailPage() {
                     <h1 className="text-3xl font-bold">Check your email</h1>
 
                     <p className="text-muted-foreground">
-                        We've sent you a verification link. Please check your email and click the link to complete your signup.
+                        We&apos;ve sent you a verification link. Please check your email and click the link to complete your signup.
                     </p>
 
                     <div className="pt-4 space-y-2">
                         <p className="text-sm text-muted-foreground">
-                            Didn't receive the email?
+                            Didn&apos;t receive the email?
                         </p>
                         <p className="text-xs text-muted-foreground">
                             Check your spam folder or contact support

@@ -45,7 +45,7 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
         if (!prompt.trim()) return
 
         if (mode === 'text') {
-            await generate({ prompt, tone, length })
+            await generate({ prompt, tone, length, intent: 'blog' })
         } else {
             // Image/Video generation will be implemented later
             alert(`${mode} generation coming soon!`)

@@ -1,4 +1,4 @@
-import { deleteGuestHistory, getGuestHistory } from '@/lib/api/guest'
+
 import { createClient } from '@/lib/supabase/client'
 
 export interface MigrationResult {

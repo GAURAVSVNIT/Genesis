@@ -9,7 +9,7 @@ export interface Connection {
 
 export interface ShareResponse {
     status: string;
-    platform_response: any;
+    platform_response: Record<string, unknown>;
 }
 
 export const socialApi = {

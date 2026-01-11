@@ -56,6 +56,13 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
             : `${imageMd}${content}`
     }, [])
 
+    const [isSaving, setIsSaving] = useState(false)
+    const [isDirty, setIsDirty] = useState(false)
+    const [editor, setEditor] = useState<{
+        setData: (data: string) => void
+        getData: () => string
+    } | null>(null)
+
     // Track the current image URL separately to pass to controls
     const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(initialImageUrl || null)
 
@@ -69,7 +76,7 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     const [content, setContent] = useState(contentWithImage)
 
     // Handle Image Updates from Controls
-    const handleImageUpdate = (newUrl: string | null) => {
+    const handleImageUpdate = useCallback((newUrl: string | null) => {
         setCurrentImageUrl(newUrl)
 
         let newContent = content
@@ -84,8 +91,6 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
             // ADD / REPLACE
             if (imgRegex.test(newContent)) {
                 // Replace existing
-                // Simple replace might be tricky with mixed formats, but let's try replacing the src if possible or just the whole tag
-                // For robustness, let's remove old and inject new
                 newContent = newContent.replace(imgRegex, '')
                 newContent = injectImage(newContent, newUrl)
             } else {
@@ -99,18 +104,16 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         if (editor) {
             editor.setData(newContent)
         }
-    }
+    }, [content, editor, injectImage])
 
     // Effect to handle external image updates (e.g. "Insert into Blog" clicked again)
     useEffect(() => {
         if (initialImageUrl && initialImageUrl !== currentImageUrl) {
-            handleImageUpdate(initialImageUrl)
+            setTimeout(() => {
+                handleImageUpdate(initialImageUrl)
+            }, 0)
         }
-    }, [initialImageUrl, currentImageUrl, content]) // depend on content to ensure we have latest version when updating
-
-    const [isSaving, setIsSaving] = useState(false)
-    const [isDirty, setIsDirty] = useState(false)
-    const [editor, setEditor] = useState<any>(null)
+    }, [initialImageUrl, currentImageUrl, handleImageUpdate])
 
     // Share State
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
@@ -129,7 +132,9 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
     // Update editor data when content changes externally
     useEffect(() => {
         if (editor && editor.getData() !== content) {
-            editor.setData(content)
+            setTimeout(() => {
+                editor.setData(content)
+            }, 0)
         }
     }, [editor, content])
 
