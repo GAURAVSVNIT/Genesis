@@ -53,6 +53,7 @@ class MessageSnapshot(BaseModel):
     timestamp: str
     tone: Optional[str] = None
     length: Optional[str] = None
+    image_url: Optional[str] = None  # Generated image URL
 
 
 class ContextSnapshot(BaseModel):
@@ -62,6 +63,7 @@ class ContextSnapshot(BaseModel):
     messages: List[MessageSnapshot]
     chat_messages: List[MessageSnapshot]
     current_blog_content: Optional[str] = None
+    current_blog_image: Optional[str] = None  # Current blog's image URL
     timestamp: str
 
 
@@ -72,7 +74,7 @@ class SaveContextRequest(BaseModel):
     messages: List[MessageSnapshot]
     chat_messages: List[MessageSnapshot]
     current_blog_content: Optional[str] = None
-
+    current_blog_image: Optional[str] = None  # Current blog's image URL
 
 class CreateCheckpointRequest(BaseModel):
     """Request to create blog checkpoint"""
@@ -80,6 +82,7 @@ class CreateCheckpointRequest(BaseModel):
     user_id: str
     title: str
     content: str
+    image_url: Optional[str] = None  # Image associated with this checkpoint
     description: Optional[str] = None
     tone: Optional[str] = None
     length: Optional[str] = None
@@ -91,6 +94,7 @@ class CheckpointResponse(BaseModel):
     id: str
     title: str
     content: str
+    image_url: Optional[str]
     description: Optional[str]
     version_number: int
     created_at: str
@@ -157,7 +161,8 @@ async def save_context(
             "conversation_id": request.conversation_id,
             "messages": [m.dict() for m in request.messages],
             "chat_messages": [m.dict() for m in request.chat_messages],
-            "current_blog": request.current_blog_content
+            "current_blog_content": request.current_blog_content,
+            "current_blog_image": request.current_blog_image  # ⭐ Save image
         }
         
         if existing_context:
@@ -275,6 +280,7 @@ async def create_checkpoint(
             conversation_id=request.conversation_id,
             title=request.title,
             content=request.content,
+            image_url=request.image_url,
             description=request.description,
             version_number=max_version + 1,
             tone=request.tone,
@@ -291,6 +297,7 @@ async def create_checkpoint(
             id=str(checkpoint.id),
             title=checkpoint.title,
             content=checkpoint.content,
+            image_url=checkpoint.image_url,
             description=checkpoint.description,
             version_number=checkpoint.version_number,
             created_at=checkpoint.created_at.isoformat(),
@@ -338,6 +345,7 @@ async def list_checkpoints(
                 id=str(cp.id),
                 title=cp.title,
                 content=cp.content,
+                image_url=cp.image_url,
                 description=cp.description,
                 version_number=cp.version_number,
                 created_at=cp.created_at.isoformat(),
@@ -378,6 +386,7 @@ async def get_checkpoint(
             id=str(checkpoint.id),
             title=checkpoint.title,
             content=checkpoint.content,
+            image_url=checkpoint.image_url,
             description=checkpoint.description,
             version_number=checkpoint.version_number,
             created_at=checkpoint.created_at.isoformat(),
@@ -426,7 +435,24 @@ async def restore_checkpoint(
         
         # If context snapshot exists, also update the conversation context
         context_snapshot = checkpoint.context_snapshot
+        
+        # Extract chat messages and images from context snapshot for explicit return
+        chat_messages = []
+        all_messages = []
+        
         if context_snapshot:
+            # Support multiple field names for compatibility
+            chat_messages = (
+                context_snapshot.get('chat_messages', []) or 
+                context_snapshot.get('chatContext', []) or
+                []
+            )
+            all_messages = (
+                context_snapshot.get('messages', []) or
+                context_snapshot.get('allMessages', []) or
+                []
+            )
+            
             # Update or create conversation context with the snapshot
             conv_id = conversation_id or checkpoint.conversation_id
             
@@ -437,7 +463,7 @@ async def restore_checkpoint(
             
             chat_context = "\n".join([
                 f"{msg.get('role', 'user').title()}: {msg.get('content', '')}"
-                for msg in context_snapshot.get('chatContext', [])
+                for msg in chat_messages
                 if isinstance(msg, dict)
             ])
             
@@ -445,7 +471,7 @@ async def restore_checkpoint(
                 existing_context.messages_context = context_snapshot
                 existing_context.chat_context = chat_context
                 existing_context.blog_context = checkpoint.content
-                existing_context.message_count = len(context_snapshot.get('chatContext', []))
+                existing_context.message_count = len(chat_messages)
                 existing_context.last_updated_at = datetime.utcnow()
             else:
                 new_context = ConversationContext(
@@ -454,7 +480,7 @@ async def restore_checkpoint(
                     messages_context=context_snapshot,
                     chat_context=chat_context,
                     blog_context=checkpoint.content,
-                    message_count=len(context_snapshot.get('chatContext', [])),
+                    message_count=len(chat_messages),
                     last_updated_at=datetime.utcnow()
                 )
                 db.add(new_context)
@@ -467,10 +493,15 @@ async def restore_checkpoint(
             "version": checkpoint.version_number,
             "title": checkpoint.title,
             "content": checkpoint.content,
+            "image_url": checkpoint.image_url,
             "context_snapshot": context_snapshot,
+            "chat_messages": chat_messages,  # ⭐ Explicitly return chat messages
+            "all_messages": all_messages,    # ⭐ Explicitly return all messages  
+            "messages_count": len(chat_messages),
             "tone": checkpoint.tone,
             "length": checkpoint.length,
-            "restored_at": datetime.utcnow().isoformat()
+            "restored_at": datetime.utcnow().isoformat(),
+            "message": f"Checkpoint restored. Content, image, and {len(chat_messages)} chat messages have been loaded."
         }
     
     except HTTPException:

@@ -83,6 +83,96 @@ def extract_keywords_from_prompt(prompt: str) -> List[str]:
     return words[:3]
 
 
+def _infer_tone_from_content(content: str) -> str:
+    """
+    Infer tone from content using simple keyword and pattern analysis.
+    Returns one of: professional, casual, technical, educational, inspirational, neutral
+    """
+    content_lower = content.lower()
+    
+    # Technical indicators
+    technical_keywords = ['algorithm', 'implementation', 'architecture', 'api', 'framework', 
+                          'protocol', 'system', 'code', 'function', 'class', 'method']
+    technical_score = sum(1 for word in technical_keywords if word in content_lower)
+    
+    # Casual indicators
+    casual_patterns = ['!', '?', 'hey', 'wow', 'awesome', 'cool', 'check out', 'guess what']
+    casual_score = sum(1 for pattern in casual_patterns if pattern in content_lower)
+    
+    # Professional indicators
+    professional_keywords = ['enterprise', 'strategy', 'business', 'management', 'corporate',
+                            'industry', 'professional', 'stakeholder', 'analytics']
+    professional_score = sum(1 for word in professional_keywords if word in content_lower)
+    
+    # Educational indicators
+    educational_keywords = ['learn', 'tutorial', 'guide', 'how to', 'step by step', 
+                           'beginners', 'understand', 'explain', 'introduction']
+    educational_score = sum(1 for word in educational_keywords if word in content_lower)
+    
+    # Inspirational indicators
+    inspirational_keywords = ['inspire', 'motivate', 'achieve', 'success', 'growth',
+                             'transform', 'empower', 'journey', 'breakthrough']
+    inspirational_score = sum(1 for word in inspirational_keywords if word in content_lower)
+    
+    # Determine highest score
+    scores = {
+        'technical': technical_score,
+        'casual': casual_score,
+        'professional': professional_score,
+        'educational': educational_score,
+        'inspirational': inspirational_score
+    }
+    
+    max_score = max(scores.values())
+    if max_score == 0:
+        return 'neutral'
+    
+    return max(scores, key=scores.get)
+
+
+def _enhance_prompt_with_preferences(
+    base_query: str,
+    style_preference: Optional[str],
+    exclude_elements: Optional[List[str]],
+    variation_level: Optional[str]
+) -> str:
+    """
+    Enhance the generated prompt with user preferences.
+    """
+    enhanced = base_query
+    
+    # Add style preference
+    if style_preference:
+        style_map = {
+            'photorealistic': 'Photorealistic style, high detail, professional photography quality',
+            'illustration': 'Digital illustration style, artistic, vibrant colors',
+            '3d_render': '3D rendered style, modern, clean design, ray-traced lighting',
+            'minimalist': 'Minimalist design, clean lines, simple composition, negative space',
+            'cinematic': 'Cinematic style, dramatic lighting, film-like quality, atmospheric'
+        }
+        if style_preference in style_map:
+            enhanced = f"{enhanced}. Style: {style_map[style_preference]}"
+        else:
+            enhanced = f"{enhanced}. Style: {style_preference}"
+    
+    # Add exclusions
+    if exclude_elements:
+        exclusions = ', '.join(exclude_elements)
+        enhanced = f"{enhanced}. Avoid including: {exclusions}"
+    
+    # Add variation instructions based on level
+    if variation_level:
+        variation_map = {
+            'low': 'Maintain consistent style and composition',
+            'medium': 'Explore creative variations while keeping core theme',
+            'high': 'Bold creative interpretation, unique perspective'
+        }
+        if variation_level in variation_map:
+            enhanced = f"{enhanced}. {variation_map[variation_level]}"
+    
+    return enhanced
+
+
 # ========== EMBEDDING GENERATION ==========
 
 def generate_embedding(content: str) -> List[float]:
@@ -125,7 +215,7 @@ def generate_embedding(content: str) -> List[float]:
 # ========== COST CALCULATION ==========
 
 PRICING = {
-    "gemini-2.0-flash": {
+    "gemini-2.5-flash": {
         "input_cost_per_1k": 0.00075,   # $0.00075 per 1K input tokens
         "output_cost_per_1k": 0.003,    # $0.003 per 1K output tokens
     },
@@ -145,7 +235,7 @@ def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     Calculate cost of API call based on model and token usage.
     Returns cost in USD.
     """
-    pricing = PRICING.get(model, PRICING["gemini-2.0-flash"])
+    pricing = PRICING.get(model, PRICING["gemini-2.5-flash"])
     
     input_cost = (input_tokens / 1000) * pricing["input_cost_per_1k"]
     output_cost = (output_tokens / 1000) * pricing["output_cost_per_1k"]
@@ -167,7 +257,7 @@ class GenerateContentRequest(BaseModel):
     prompt: str
     intent: str = "chat" # 'chat', 'blog', 'edit', 'rewrite', 'image'
     conversation_history: Optional[List[Message]] = None
-    safety_level: str = "moderate"  # 'strict', 'moderate', 'permissive'
+    safety_level: str = "strict"  # 'strict', 'moderate', 'permissive'
     guestId: Optional[str] = None
     tone: str = "analytical"  # 'analytical', 'opinionated', 'critical', 'investigative', 'contrarian'
     include_critique: bool = True  # Include critical analysis
@@ -177,7 +267,7 @@ class GenerateContentRequest(BaseModel):
 
     max_words: Optional[int] = None  # Maximum word count
     include_sections: bool = True  # Include section breaks
-    model: str = "gemini-2.0-flash"  # Model selection
+    model: str = "gemini-2.5-flash"  # Model selection - defaults to Gemini, can be changed to gpt-4o-mini, etc.
 
 
 class GenerateContentResponse(BaseModel):
@@ -220,8 +310,8 @@ class GenerateContentResponse(BaseModel):
 class AgentConfig(BaseModel):
     """Configuration for the agent."""
     gcp_project_id: Optional[str] = None
-    model: str = "gemini-2.0-flash"
-    safety_level: str = "moderate"
+    model: str = "gemini-2.5-flash"
+    safety_level: str = "strict"
 
 
 # Agent instance
@@ -320,7 +410,38 @@ async def generate_content(
     import time
     start_time = time.time()
     
+    # ========== GUARDRAILS CHECK #1: INPUT VALIDATION (BEFORE EVERYTHING) ==========
+    print(f"[GUARDRAILS #1] Validating input prompt before any processing...")
+    print(f"[GUARDRAILS #1] Prompt: {request.prompt[:100]}...")
+    print(f"[GUARDRAILS #1] Safety level: {request.safety_level}")
+    
+    # Create temporary guardrails instance for early validation
+    from core.guardrails import get_message_guardrails
+    early_guardrails = get_message_guardrails(level=request.safety_level, use_llm=True)
+    early_validation = early_guardrails.validate_user_message(request.prompt, role="user")
+    
+    print(f"[GUARDRAILS #1] Result: is_safe={early_validation.is_safe}, reason={early_validation.reason}, score={early_validation.score}")
+    
+    if not early_validation.is_safe:
+        print(f"[GUARDRAILS #1] ❌ BLOCKED - {early_validation.reason}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Content blocked by safety filters",
+                "reason": early_validation.reason,
+                "score": early_validation.score,
+                "category": "input_validation",
+                "message": "Your request contains content that violates our safety guidelines. Please rephrase and try again."
+            }
+        )
+    
+    print(f"[GUARDRAILS #1] ✅ PASSED - Input is safe")
+    
     try:
+        # Import required modules at function level
+        from intelligence.seo.optimizer import SEOOptimizer, optimize_content
+        from intelligence.seo.config import SEOConfig
+        
         # ========== INITIALIZATION ==========
         # Check database connection first
         if not db:
@@ -408,8 +529,8 @@ async def generate_content(
                 top_trends = [t.get("title", "") for t in trend_analysis["trending_topics"][:3]]
                 trend_context = f"\n\nTrending Context: The following topics are currently trending and relevant to this request: {', '.join(top_trends)}. Incorporate these angles where appropriate."
 
-            # Analyze SEO (on cached content)
-            seo_config = SEOConfig()
+            # Analyze SEO (on cached content) using the selected model
+            seo_config = SEOConfig(model_name=request.model)
             seo_result = await optimize_content(
                 content=cached_prompt.response_text,
                 keywords=keywords,
@@ -482,8 +603,8 @@ async def generate_content(
                 image_search_query = keywords[0] if keywords else request.prompt[:20]
                 
                 # Fetch image
-                print(f" [Cache Hit] Fetching image for: {image_search_query} with model: {request.model}")
-                image_url = await image_collector.get_relevant_image(image_search_query, model_provider=request.model)
+                print(f" [Cache Hit] Fetching image for: {image_search_query} with OpenAI DALL-E")
+                image_url = await image_collector.get_relevant_image(image_search_query, model_provider="gpt")
             except Exception as e:
                 print(f"[Cache Hit] Image generation failed: {e}")
                 
@@ -540,16 +661,17 @@ async def generate_content(
         
         # ========== STEP 3.5: EXTRACT KEYWORDS & ANALYZE TRENDS (MOVED UP FOR CONTEXT SYNC) ==========
         # Extract keywords early for trend analysis
-        from intelligence.seo.optimizer import SEOOptimizer
-        from intelligence.seo.config import SEOConfig
         
-        # Use a supported model for SEO optimization (Gemini) regardless of the content generation model
-        # This prevents errors when using models like Llama which are not supported by the SEO optimizer's underlying specific Google implementation
-        seo_optimizer = SEOOptimizer(config=SEOConfig(model_name="gemini-2.0-flash"))
-        
-        # Extract keywords for this prompt
-        keywords = await seo_optimizer.extract_keywords(request.prompt)
-        print(f" [SEO] Extracted keywords for context: {keywords}")
+        # Use the selected model for SEO optimization (respects user's model choice)
+        try:
+            seo_optimizer = SEOOptimizer(config=SEOConfig(model_name=request.model))
+            keywords = await seo_optimizer.extract_keywords(request.prompt)
+            print(f" [SEO] Extracted keywords using {request.model}: {keywords}")
+        except Exception as e:
+            print(f" [SEO] Keyword extraction failed with {request.model}, using simple fallback: {e}")
+            # Simple fallback - extract words from prompt
+            keywords = [word.lower() for word in request.prompt.split() if len(word) > 3][:5]
+            print(f" [SEO] Fallback keywords: {keywords}")
 
         # Initialize trend services
         from intelligence.trend_collector import TrendCollector
@@ -625,7 +747,30 @@ async def generate_content(
             conversation_history=history,
         )
         
-        # Get safety report
+        # ========== GUARDRAILS CHECK #2: OUTPUT VALIDATION (AFTER GENERATION) ==========
+        print(f"[GUARDRAILS #2] Validating generated output...")
+        print(f"[GUARDRAILS #2] Content length: {len(content)} chars")
+        print(f"[GUARDRAILS #2] Content preview: {content[:200]}...")
+        
+        output_validation = agent.guardrails.validate_user_message(content, role="assistant")
+        print(f"[GUARDRAILS #2] Result: is_safe={output_validation.is_safe}, reason={output_validation.reason}, score={output_validation.score}")
+        
+        if not output_validation.is_safe:
+            print(f"[GUARDRAILS #2] ❌ BLOCKED - Generated content violated safety guidelines: {output_validation.reason}")
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "Generated content blocked by safety filters",
+                    "reason": output_validation.reason,
+                    "score": output_validation.score,
+                    "category": "output_validation",
+                    "message": "The AI-generated content violated our safety guidelines. Please try rephrasing your request."
+                }
+            )
+        
+        print(f"[GUARDRAILS #2] ✅ PASSED - Output is safe")
+        
+        # Get safety report for logging
         safety_report = agent.guardrails.get_safety_report(request.prompt)
         
         # ========== STEP 5-6: STORE IN CONVERSATION & MESSAGE CACHE ==========
@@ -874,12 +1019,13 @@ async def generate_content(
                     keywords=keywords, 
                     tone=request.tone, 
                     summary=summary_context,
-                    trends=top_trends if 'top_trends' in locals() else None
+                    trends=top_trends if 'top_trends' in locals() else None,
+                    model=request.model  # Use the same model as content generation
                 )
-                print(f" [Image] Generative Query: {image_query[:50]}...")
+                print(f" [Image] Generative Query (using {request.model}): {image_query[:50]}...")
                 
-                # Fetch image using enhanced query
-                relevant_image_url = await image_collector.get_relevant_image(image_query)
+                # Fetch image using enhanced query with OpenAI
+                relevant_image_url = await image_collector.get_relevant_image(image_query, model_provider="gpt")
                 
                 if relevant_image_url:
                      print(f" [Image] Generated successfully.")
@@ -907,14 +1053,14 @@ async def generate_content(
         try:
             if not relevant_image_url: # Only if not already fetched
                  image_search_query = keywords[0] if keywords else request.prompt[:20]
-                 print(f"[Images] Fetching image for: {image_search_query}")
-                 relevant_image_url = await image_collector.get_relevant_image(image_search_query, model_provider=request.model)
+                 print(f"[Images] Fetching image for: {image_search_query} with OpenAI DALL-E")
+                 relevant_image_url = await image_collector.get_relevant_image(image_search_query, model_provider="gpt")
                  
                  # Retry with safer abstract prompt if failed
                  if not relevant_image_url:
                      print(f"[Images] Primary query failed. Retrying with abstract concept...")
                      safe_query = f"Abstract representation of {image_search_query}"
-                     relevant_image_url = await image_collector.get_relevant_image(safe_query, model_provider=request.model)
+                     relevant_image_url = await image_collector.get_relevant_image(safe_query, model_provider="gpt")
 
                  if relevant_image_url:
                      print(f" [Images] Found image: {relevant_image_url}")
@@ -942,7 +1088,7 @@ async def generate_content(
         # Optimize content
         # We explicitly await this as it uses async AI calls
         # We pass the trend context to the optimizer config or prompt if supported
-        seo_config = SEOConfig()
+        seo_config = SEOConfig(model_name=request.model)
         # You might extend SEOConfig or the optimize_content prompt to accept "context"
         
         seo_result = await optimize_content(
@@ -1231,7 +1377,7 @@ async def health_check():
         
         return {
             "status": "ok",
-            "model": "gemini-2.0-flash",
+            "model": "gemini-2.5-flash",
             "platform": "Vertex AI",
             "test_response": response[:50] + "..." if len(response) > 50 else response,
         }
@@ -1248,7 +1394,7 @@ async def list_models():
     return {
         "models": [
             {
-                "name": "gemini-2.0-flash",
+                "name": "gemini-2.5-flash",
                 "description": "Latest fast Gemini model",
                 "context_window": 100000,
             },
@@ -1271,6 +1417,11 @@ from intelligence.image_collector import ImageCollector
 
 class RegenerateImageRequest(BaseModel):
     content: str
+    tone: Optional[str] = None  # "professional", "casual", "technical", etc. - inferred if not provided
+    style_preference: Optional[str] = None  # "photorealistic", "illustration", "3d_render", "minimalist", "cinematic"
+    specific_focus: Optional[str] = None  # What to emphasize in the image
+    exclude_elements: Optional[List[str]] = None  # Elements to avoid
+    variation_level: Optional[str] = "medium"  # "low", "medium", "high" - controls creativity
 
 class RegenerateImageResponse(BaseModel):
     image_url: Optional[str] = None
@@ -1278,32 +1429,78 @@ class RegenerateImageResponse(BaseModel):
 @router.post("/regenerate-image", response_model=RegenerateImageResponse)
 async def regenerate_image(request: RegenerateImageRequest):
     """
-    Regenerate an image based on the provided content (blog post).
+    Regenerate an image based on the provided content (blog post) with enhanced customization.
+    
+    Supports:
+    - Automatic tone inference from content
+    - Style preferences (photorealistic, illustration, etc.)
+    - Specific visual focus
+    - Element exclusion
+    - Variation control
     """
     try:
         if not request.content or not request.content.strip():
             raise HTTPException(status_code=400, detail="Content is required for image generation.")
 
-        # Extract keywords to use as context
-        keywords = extract_keywords_from_prompt(request.content)
+        # Extract keywords with better logic - prioritize title/first paragraph
+        content_lines = request.content.strip().split('\n')
+        title_text = content_lines[0] if content_lines else ""
+        first_para = ' '.join(content_lines[1:3]) if len(content_lines) > 1 else ""
+        
+        # Extract keywords from title and first paragraph (more relevant than full content)
+        keywords_from_title = extract_keywords_from_prompt(title_text)
+        keywords_from_content = extract_keywords_from_prompt(first_para or request.content[:500])
+        keywords = list(dict.fromkeys(keywords_from_title + keywords_from_content))[:5]  # Top 5 unique
+        
+        # Infer tone if not provided
+        tone = request.tone
+        if not tone:
+            tone = _infer_tone_from_content(request.content)
+            print(f"[DEBUG] Inferred tone: {tone}")
         
         # Use AI Art Director for enhanced prompt
         from intelligence.image_prompter import generate_image_prompt
         
-        # Since we don't have the original 'tone' in this request, we'll infer 'neutral' or let the AI decide based on content
-        # We treat the entire content as the 'topic' but truncate it for the prompt context
-        safe_topic = request.content[:500] 
+        # Create a smart summary - use first 3 paragraphs or 800 chars
+        paragraphs = [p.strip() for p in request.content.split('\n\n') if p.strip()]
+        smart_summary = ' '.join(paragraphs[:3])[:800] if paragraphs else request.content[:800]
         
-        print(f"[DEBUG] Regenerate Image Request. Consulting Art Director...")
-        # For regeneration, the "request.content" IS the blog content, so we pass it as summary too
-        query = await generate_image_prompt(safe_topic, keywords, tone="neutral", summary=request.content[:1000])
-        print(f"[DEBUG] Generative Query: {query[:50]}...")
-
+        # Build enhanced topic with focus
+        topic = title_text if title_text else smart_summary[:200]
+        if request.specific_focus:
+            topic = f"{topic} (Focus: {request.specific_focus})"
+        
+        print(f"[DEBUG] Regenerate Image Request")
+        print(f"[DEBUG] - Tone: {tone}")
+        print(f"[DEBUG] - Keywords: {keywords}")
+        if request.style_preference:
+            print(f"[DEBUG] - Style: {request.style_preference}")
+        if request.exclude_elements:
+            print(f"[DEBUG] - Excluding: {request.exclude_elements}")
+        print(f"[DEBUG] Consulting Art Director...")
+        
+        # Generate the image prompt
+        query = await generate_image_prompt(
+            topic=topic,
+            keywords=keywords,
+            tone=tone,
+            summary=smart_summary
+        )
+        
+        # Enhance query with user preferences
+        enhanced_query = _enhance_prompt_with_preferences(
+            query,
+            request.style_preference,
+            request.exclude_elements,
+            request.variation_level
+        )
+        
+        print(f"[DEBUG] Enhanced Query: {enhanced_query[:100]}...")
         
         collector = ImageCollector()
-        print(f"[DEBUG] ImageCollector initialized. Project ID: {collector.project_id}")
+        print(f"[DEBUG] ImageCollector initialized. Using OpenAI DALL-E")
         
-        image_url = await collector.get_relevant_image(query)
+        image_url = await collector.get_relevant_image(enhanced_query, model_provider="gpt")
         
         if not image_url:
              print("[ERROR] No image returned (Safety Block?)")

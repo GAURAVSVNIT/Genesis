@@ -116,6 +116,7 @@ class BlogCheckpoint(BaseModel):
     # Blog Content
     title = Column(String(500), nullable=False)
     content = Column(Text, nullable=False)
+    image_url = Column(Text, nullable=True)  # Image associated with this version
     description = Column(Text)  # Optional description of this version
     
     # Context Snapshot

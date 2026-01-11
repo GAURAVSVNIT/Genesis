@@ -34,7 +34,7 @@ class ImageCollector:
                 print(f"[ImageCollector] Failed to load Imagen model: {e}")
         return self._model
     
-    async def get_relevant_image(self, query: str, model_provider: str = "gemini") -> Optional[str]:
+    async def get_relevant_image(self, query: str, model_provider: str = "gpt") -> Optional[str]:
         """
         Generate a relevant image for the given query using the selected provider.
         
@@ -49,12 +49,19 @@ class ImageCollector:
         # === OPTION 1: OpenAI DALL-E 3 ===
         if model_provider.startswith("gpt"):
             try:
-                print(f"[MODEL INFO] ImageCollector - Using OpenAI DALL-E 3 for: {query}")
-                from openai import OpenAI
+                print(f"[MODEL INFO] ImageCollector - Using OpenAI DALL-E 3 for: {query[:50]}...")
                 
                 if not settings.OPENAI_API_KEY:
-                     print("[ImageCollector] Missing OpenAI API Key")
+                     print("[ImageCollector] ❌ ERROR: OPENAI_API_KEY not found in .env file!")
+                     print("[ImageCollector] Please add OPENAI_API_KEY=sk-... to your .env file")
                      return None
+                
+                try:
+                    from openai import OpenAI
+                except ImportError:
+                    print("[ImageCollector] ❌ ERROR: openai package not installed!")
+                    print("[ImageCollector] Run: pip install openai")
+                    return None
                      
                 client = OpenAI(api_key=settings.OPENAI_API_KEY)
                 
@@ -68,10 +75,13 @@ class ImageCollector:
                 )
                 
                 b64_data = response.data[0].b64_json
+                print(f"[ImageCollector] ✅ OpenAI image generated successfully")
                 return f"data:image/png;base64,{b64_data}"
                 
             except Exception as e:
-                print(f"[ImageCollector] OpenAI DALL-E Error: {e}")
+                print(f"[ImageCollector] ❌ OpenAI DALL-E Error: {e}")
+                import traceback
+                traceback.print_exc()
                 # Fallback to Vertex AI if OpenAI fails? Or just return None
                 # For now, let's allow fallback to Vertex AI below
                 print("[ImageCollector] Falling back to Vertex AI...")

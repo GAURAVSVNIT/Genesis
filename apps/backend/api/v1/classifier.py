@@ -115,7 +115,7 @@ Context of conversation:
     
     try:
         model = GenerativeModel(
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             system_instruction=SYSTEM_PROMPT
         )
         
@@ -272,12 +272,12 @@ async def classifier_health():
     """Health check for classifier service."""
     try:
         # Test Vertex AI
-        model = GenerativeModel("gemini-2.0-flash")
+        model = GenerativeModel("gemini-2.5-flash")
         response = model.generate_content("Hi")
         return {
             "status": "healthy",
             "classifier": "operational",
-            "model": "gemini-2.0-flash",
+            "model": "gemini-2.5-flash",
             "provider": "vertex-ai"
         }
     except Exception as e:

@@ -7,7 +7,7 @@ dotenv.load_dotenv()
 from core.vertex_ai import get_vertex_ai_service
 
 # Initialize Vertex AI service
-llm = get_vertex_ai_service(project_id=os.getenv("GCP_PROJECT_ID"), model="gemini-2.0-flash")
+llm = get_vertex_ai_service(project_id=os.getenv("GCP_PROJECT_ID"), model="gemini-2.5-flash")
 
 async def write_blog(state):
     # Base prompt

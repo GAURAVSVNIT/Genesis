@@ -48,6 +48,7 @@ class InputGuardrails:
     LLM_SAFETY_PROMPT = """You are a content safety classifier. Analyze the following message and determine if it's safe or contains harmful content.
 
 Guidelines:
+- Profanity/Offensive Language: Explicit profanity, vulgar language, offensive insults (fuck, shit, damn, etc.)
 - Violence: Direct calls for harm, threats, graphic violence
 - Hate: Discrimination based on protected characteristics
 - Illegal: Instructions for illegal activities
@@ -80,7 +81,7 @@ Respond with ONLY valid JSON (no additional text):
         if use_llm and settings.GCP_PROJECT_ID:
             try:
                 vertexai.init(project=settings.GCP_PROJECT_ID)
-                self.llm_model = GenerativeModel("gemini-2.0-flash")
+                self.llm_model = GenerativeModel("gemini-2.5-flash")
             except Exception as e:
                 print(f"Failed to initialize Vertex AI for guardrails, falling back to regex: {e}")
                 self.use_llm = False
@@ -93,8 +94,10 @@ Respond with ONLY valid JSON (no additional text):
                 r"(?i)system.*?prompt",
                 r"(?i)(execute|run|eval).*?(code|command|script)",
             ],
-            "explicit": [
-                r"(?i)(shit|damn|fuck|asshole|bastard)",  # Profanity
+            "profanity": [
+                r"\b(?i)(fuck|shit|damn|asshole|bastard|bitch|cunt|dick|pussy|cock|whore|slut)\b",
+                r"\b(?i)(fucking|fucked|fucker|motherfucker|bullshit)\b",
+                r"(?i)fuck\s+(you|yourself|off|this|that)",
             ],
             "violence": [
                 r"(?i)(kill|murder|shoot|stab|harm|hurt).*(person|people|someone)",
@@ -118,8 +121,8 @@ Respond with ONLY valid JSON (no additional text):
                 r"(?i)(confidential|secret|classified)",
             ]
         elif safety_level == SafetyLevel.PERMISSIVE:
-            # Remove some patterns
-            self.harmful_patterns.pop("explicit", None)
+            # Only remove profanity in permissive mode, keep other checks
+            self.harmful_patterns.pop("profanity", None)
         
         # Allowed message length
         self.max_length = 10000

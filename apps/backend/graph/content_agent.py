@@ -31,7 +31,7 @@ class ContentGenerationAgent:
     def __init__(
         self,
         gcp_project_id: Optional[str] = None,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         safety_level: str = "moderate",
     ):
         """
@@ -220,7 +220,7 @@ class ContentGenerationAgent:
 
 def create_agent(
     gcp_project_id: Optional[str] = None,
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-2.5-flash",
     safety_level: str = "moderate",
 ) -> ContentGenerationAgent:
     """
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     # Create agent
     agent = create_agent(
         gcp_project_id="your-gcp-project",
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         safety_level="moderate"
     )
     

@@ -20,6 +20,7 @@ class ShareRequest(BaseModel):
     content: str
     title: Optional[str] = None
     url: Optional[str] = None
+    image_url: Optional[str] = None  # URL to image (from /generate or external)
     target_urn: Optional[str] = None # Optional target (e.g., Organization URN)
 
 class ConnectionResponse(BaseModel):
@@ -321,7 +322,7 @@ def callback_twitter(
 
 @router.post("/share")
 def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get_db)):
-    """Share content to a connected platform."""
+    """Share content to a connected platform with optional image."""
     if request.platform not in ["linkedin", "twitter"]:
         raise HTTPException(status_code=400, detail="Platform not supported.")
         
@@ -334,6 +335,22 @@ def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get
     
     if not conn or not conn.access_token:
         raise HTTPException(status_code=400, detail=f"{request.platform.capitalize()} not connected.")
+    
+    # Download image if URL provided
+    image_data = None
+    if request.image_url:
+        try:
+            print(f"[Share] Downloading image from: {request.image_url[:60]}...")
+            import requests as req
+            img_response = req.get(request.image_url, timeout=30)
+            if img_response.status_code == 200:
+                image_data = img_response.content
+                print(f"[Share] Image downloaded: {len(image_data)} bytes")
+            else:
+                print(f"[Share] Failed to download image: {img_response.status_code}")
+        except Exception as e:
+            print(f"[Share] Image download error: {e}")
+            # Continue without image
         
     publisher = SocialPublisher()
     
@@ -349,7 +366,8 @@ def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get
                 user_urn=target_urn,
                 text=request.content,
                 url=request.url,
-                title=request.title
+                title=request.title,
+                image_data=image_data
             )
         elif request.platform == "twitter":
              # Twitter just needs text (links embedded in text)
@@ -358,7 +376,11 @@ def share_content(request: ShareRequest, user_id: str, db: Session = Depends(get
              if request.url:
                  text = f"{text}\n\n{request.url}"
                  
-             response = publisher.post_tweet(conn.access_token, text)
+             response = publisher.post_tweet(
+                 conn.access_token, 
+                 text,
+                 image_data=image_data
+             )
              
         return {"status": "published", "platform_response": response}
         

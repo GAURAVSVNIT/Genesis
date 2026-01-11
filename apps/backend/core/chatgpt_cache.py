@@ -172,7 +172,7 @@ class ChatGPTStyleCache:
         self,
         prompt: str,
         response: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         generation_time: Optional[float] = None,
         tokens: Dict[str, int] = None,
     ) -> str:

@@ -79,10 +79,10 @@ class CostCalculator:
     # Vertex AI pricing as of Dec 2024
     # Source: https://cloud.google.com/vertex-ai/generative-ai/pricing
     PRICING = {
-        "gemini-2.0-flash": {
+        "gemini-2.5-flash": {
             "input_cost_per_1m": 0.075,      # $0.075 per 1M input tokens
             "output_cost_per_1m": 0.3,       # $0.3 per 1M output tokens
-            "name": "Gemini 2.0 Flash (Latest)"
+            "name": "Gemini 2.5 Flash (Latest)"
         },
         "gemini-1.5-pro": {
             "input_cost_per_1m": 2.5,        # $2.5 per 1M input tokens
@@ -117,7 +117,7 @@ class CostCalculator:
         Calculate cost in USD.
         
         Args:
-            model: Model name (e.g., "gemini-2.0-flash")
+            model: Model name (e.g., "gemini-2.5-flash")
             input_tokens: Number of input tokens
             output_tokens: Number of output tokens
             
@@ -169,7 +169,7 @@ class CostCalculator:
         Returns:
             Pricing dict with rates and name
         """
-        return cls.PRICING.get(model, cls.PRICING["gemini-2.0-flash"])
+        return cls.PRICING.get(model, cls.PRICING["gemini-2.5-flash"])
 
 
 class TokenMetrics:
