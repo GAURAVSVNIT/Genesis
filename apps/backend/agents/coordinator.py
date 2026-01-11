@@ -14,7 +14,7 @@ async def coordinate(state):
     """
     # Initialize Vertex AI service lazily
     project_id = os.getenv("GCP_PROJECT_ID") or settings.GCP_PROJECT_ID
-    llm = get_vertex_ai_service(project_id=project_id, model="gemini-2.0-flash")
+    llm = get_vertex_ai_service(project_id=project_id, model="gemini-2.5-flash")
     prompt = f"""
     You are the Coordinator Agent overseeing this task: '{state['task']}'
     

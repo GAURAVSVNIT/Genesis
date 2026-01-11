@@ -80,7 +80,7 @@ Respond with ONLY valid JSON (no additional text):
         if use_llm and settings.GCP_PROJECT_ID:
             try:
                 vertexai.init(project=settings.GCP_PROJECT_ID)
-                self.llm_model = GenerativeModel("gemini-2.0-flash")
+                self.llm_model = GenerativeModel("gemini-2.5-flash")
             except Exception as e:
                 print(f"Failed to initialize Vertex AI for guardrails, falling back to regex: {e}")
                 self.use_llm = False

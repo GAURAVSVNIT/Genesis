@@ -125,7 +125,7 @@ class PromptCache(Base):
     response_hash = Column(String(64), nullable=False, index=True)
     
     # Generation metadata
-    model = Column(String(100), default="gemini-2.0-flash")
+    model = Column(String(100), default="gemini-2.5-flash")
     temperature = Column(Float, default=0.7)
     max_tokens = Column(Integer, default=2000)
     

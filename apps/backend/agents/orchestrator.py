@@ -13,7 +13,7 @@ load_dotenv(dotenv_path=env_path)
 # Initialize Vertex AI service
 llm = get_vertex_ai_service(
     project_id=os.getenv("GCP_PROJECT_ID"),
-    model="gemini-2.0-flash"
+    model="gemini-2.5-flash"
 )
 
 async def run_blog_agent(req: BlogRequest):
