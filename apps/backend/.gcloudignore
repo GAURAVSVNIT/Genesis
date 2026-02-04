@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+deploy_env.json
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+tests/
+scripts/

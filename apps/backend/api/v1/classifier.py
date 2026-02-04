@@ -70,10 +70,13 @@ Rules:
 - If user asks a QUESTION → CHAT
 - Priority: IMAGE > REWRITE > EDIT > BLOG > CHAT
 
+
 Respond with ONLY a JSON object (no additional text):
 {
-  "intent": "chat", "blog", "edit", "rewrite", or "image",
+  "intent": "chat" | "blog" | "edit" | "rewrite" | "image",
   "confidence": 0.0-1.0,
+  "topic": "The core subject/topic of the request (e.g., 'Crabs', 'AI Marketing', 'Climate Change')",
+  "refined_query": "A clear, standalone version of the user's request, optimized for content generation. Remove conversational filler.",
   "reasoning": "Brief explanation (one sentence)"
 }"""
 
@@ -88,6 +91,8 @@ class IntentClassificationResponse(BaseModel):
     """Response model for intent classification."""
     intent: Literal["chat", "blog", "edit", "rewrite", "image"]
     confidence: float  # 0.0 to 1.0
+    topic: str | None = None
+    refined_query: str | None = None
     reasoning: str
     cached: bool = False
 
@@ -129,14 +134,28 @@ Context of conversation:
             return {
                 "intent": result.get("intent", "chat"),
                 "confidence": float(result.get("confidence", 0.5)),
+                "topic": result.get("topic"),
+                "refined_query": result.get("refined_query"),
                 "reasoning": result.get("reasoning", "")
             }
         else:
             # Fallback parsing
             if "blog" in response_text.lower():
-                return {"intent": "blog", "confidence": 0.7, "reasoning": "Detected from response text"}
+                return {
+                    "intent": "blog", 
+                    "confidence": 0.7, 
+                    "topic": prompt, # Fallback to raw prompt
+                    "refined_query": prompt,
+                    "reasoning": "Detected from response text"
+                }
             else:
-                return {"intent": "chat", "confidence": 0.6, "reasoning": "Default to chat"}
+                return {
+                    "intent": "chat", 
+                    "confidence": 0.6, 
+                    "topic": None,
+                    "refined_query": prompt,
+                    "reasoning": "Default to chat"
+                }
                 
     except Exception as e:
         print(f"Error classifying with Vertex AI: {e}")
@@ -198,6 +217,8 @@ def classify_with_keywords(prompt: str) -> dict:
     return {
         "intent": intent,
         "confidence": round(confidence, 2),
+        "topic": prompt if intent == "blog" else None, # Simple fallback
+        "refined_query": prompt,
         "reasoning": "Keyword-based classification (fallback)"
     }
 
@@ -244,6 +265,8 @@ async def classify_intent(request: IntentClassificationRequest) -> IntentClassif
     response = IntentClassificationResponse(
         intent=classification["intent"].lower(),  # Ensure valid lowercase enum
         confidence=classification["confidence"],
+        topic=classification.get("topic"),
+        refined_query=classification.get("refined_query"),
         reasoning=classification["reasoning"],
         cached=False
     )
@@ -258,6 +281,8 @@ async def classify_intent(request: IntentClassificationRequest) -> IntentClassif
                 json.dumps({
                     "intent": response.intent,
                     "confidence": response.confidence,
+                    "topic": response.topic,
+                    "refined_query": response.refined_query,
                     "reasoning": response.reasoning
                 })
             )

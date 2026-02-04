@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card'
 import { useGeneration } from '@/lib/hooks/use-generation'
 import { GenerationResult } from './generation-result'
 import { AuthGate } from './auth-gate'
+import { VoiceInput } from '@/components/ui/voice-input'
 import Link from 'next/link'
 
 interface PromptInterfaceProps {
@@ -39,6 +40,10 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
             return
         }
         setMode(newMode)
+    }
+
+    const handleTranscription = (text: string) => {
+        setPrompt(prev => prev ? `${prev} ${text}` : text)
     }
 
     const handleGenerate = async () => {
@@ -119,6 +124,11 @@ export function PromptInterface({ isAuthenticated }: PromptInterfaceProps) {
                                 className="resize-none rounded-2xl text-base border-border/50 bg-secondary/20 focus:bg-secondary/40 focus:border-primary/50 focus:ring-0 shadow-inner transition-all p-4"
                             />
                             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-0 group-focus-within:opacity-100 pointer-events-none transition-opacity duration-500"></div>
+                            <VoiceInput
+                                onTranscription={handleTranscription}
+                                className="absolute right-3 bottom-3 z-20 hover:bg-secondary/80"
+                                isCompact={true}
+                            />
                         </div>
                         <p className="text-xs text-muted-foreground pl-1">💡 Tip: More details = better results</p>
                     </div>

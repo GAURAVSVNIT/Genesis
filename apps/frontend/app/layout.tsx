@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 
 import "./globals.css";
-import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
 import { SignupMigrationHandler } from "@/components/signup-migration-handler";
 import { GuestSessionInit } from "@/components/guest-session-init";

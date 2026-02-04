@@ -14,7 +14,8 @@ from typing import Dict, List, Optional
 import json
 import re
 import asyncio
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
+from core.config import settings
 
 from .config import SEOConfig, DEFAULT_CONFIG
 from .keyword_analyzer import KeywordAnalyzer
@@ -46,10 +47,11 @@ class SEOOptimizer:
         self.config = config or DEFAULT_CONFIG
         
         # Initialize AI model
-        self.model = ChatGoogleGenerativeAI(
+        self.model = ChatVertexAI(
             model=self.config.model_name,
             temperature=self.config.temperature,
-            max_output_tokens=self.config.max_tokens
+            max_output_tokens=self.config.max_tokens,
+            project=settings.GCP_PROJECT_ID,
         )
         
         # Initialize analyzers

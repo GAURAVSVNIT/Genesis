@@ -8,15 +8,19 @@ export interface IntentClassificationRequest {
 }
 
 export interface IntentClassificationResponse {
-    intent: 'chat' | 'blog' | 'modify' | 'rewrite'
+    intent: 'chat' | 'blog' | 'edit' | 'rewrite' | 'image'
     confidence: number
+    topic?: string
+    refined_query?: string
     reasoning: string
     cached: boolean
 }
 
 export async function classifyIntent(request: IntentClassificationRequest): Promise<IntentClassificationResponse> {
     try {
-        const response = await fetch(`${BACKEND_URL}/v1/classify/intent`, {
+        const url = `${BACKEND_URL}/v1/classify/intent`
+        console.log('[DEBUG] classifyIntent calling:', url)
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
