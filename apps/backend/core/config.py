@@ -25,6 +25,9 @@ if gcp_creds:
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(local_creds)
         else:
              print(f"❌ Google Credentials file not found at '{gcp_creds}' or '{local_creds}'")
+    else:
+        # If the path exists as provided, ensure it's absolute in env vars for downstream libs
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(creds_path.resolve())
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Genesis"
@@ -53,6 +56,20 @@ class Settings(BaseSettings):
     # Twitter Configuration
     TWITTER_CLIENT_ID: str | None = None
     TWITTER_CLIENT_SECRET: str | None = None
+    
+    # Google API Key
+    GOOGLE_API_KEY: str | None = None
+
+    # Search & Media APIs
+    SERPER_API_KEY: str | None = None
+    UNSPLASH_ACCESS_KEY: str | None = None
+    UNSPLASH_SECRET_KEY: str | None = None
+
+    # Database Configuration
+    SUPABASE_URL: str | None = None
+    SUPABASE_KEY: str | None = None
+    DB_PASSWORD: str | None = None
+    DATABASE_URL: str | None = None
 
     class Config:
         case_sensitive = True
