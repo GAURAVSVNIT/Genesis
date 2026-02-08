@@ -74,7 +74,8 @@ class ImageCollector:
                     return None
             except Exception as e:
                 print(f"[ImageCollector] ❌ OpenAI DALL-E Error: {e}")
-                return None
+                # Re-raise the exception so it can be seen in the API response for debugging
+                raise e
 
         # Helper function for Vertex Imagen generation
         async def generate_with_vertex(prompt):

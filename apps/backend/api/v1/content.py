@@ -1188,8 +1188,9 @@ async def regenerate_image(request: RegenerateImageRequest):
             raise HTTPException(status_code=400, detail="Content is required for image generation.")
 
         # Extract keywords with better logic - prioritize title/first paragraph
-        content_lines = request.content.strip().split('\\n')
-        title_text = content_lines[0] if content_lines else ""
+        # Extract keywords with better logic - prioritize title/first paragraph
+        content_lines = request.content.strip().split('\n')
+        title_text = content_lines[0][:200] if content_lines else ""
         first_para = ' '.join(content_lines[1:3]) if len(content_lines) > 1 else ""
         
         # Extract keywords from title and first paragraph (more relevant than full content)
@@ -1207,11 +1208,14 @@ async def regenerate_image(request: RegenerateImageRequest):
         from intelligence.image_prompter import generate_image_prompt
         
         # Create a smart summary - use first 3 paragraphs or 800 chars
-        paragraphs = [p.strip() for p in request.content.split('\\n\\n') if p.strip()]
+        paragraphs = [p.strip() for p in request.content.split('\n\n') if p.strip()]
         smart_summary = ' '.join(paragraphs[:3])[:800] if paragraphs else request.content[:800]
         
         # Build enhanced topic with focus
         topic = title_text if title_text else smart_summary[:200]
+        # Safety truncate topic to ensure we don't blow up the prompt context
+        topic = topic[:500]
+        
         if request.specific_focus:
             topic = f"{topic} (Focus: {request.specific_focus})"
         

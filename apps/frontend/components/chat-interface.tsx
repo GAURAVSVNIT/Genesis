@@ -449,7 +449,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     }
 
     // Restore checkpoint with full context
-    const handleRestoreCheckpoint = async (checkpointId: string) => {
+    const handleRestoreCheckpoint = async (e: React.MouseEvent, checkpointId: string) => {
+        e.stopPropagation()
         try {
             const restored = await restoreCheckpoint(checkpointId, userId, conversationId)
 
@@ -498,24 +499,27 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             if (restored.tone) setTone(restored.tone)
             if (restored.length) setLength(restored.length)
 
-            alert(`Restored checkpoint: ${restored.title}\n\nContext has been restored with full conversation history.`)
+            toast.success(`Restored checkpoint: ${restored.title}`, {
+                description: 'Context has been restored with full conversation history.'
+            })
         } catch (error) {
             console.error('Error restoring checkpoint:', error)
-            alert('Failed to restore checkpoint')
+            toast.error('Failed to restore checkpoint')
         }
     }
 
     // Delete checkpoint
-    const handleDeleteCheckpoint = async (checkpointId: string) => {
+    const handleDeleteCheckpoint = async (e: React.MouseEvent, checkpointId: string) => {
+        e.stopPropagation()
         if (!confirm('Delete this checkpoint?')) return
 
         try {
             await deleteCheckpoint(checkpointId, userId)
             setCheckpoints(prev => prev.filter((cp: any) => cp.id !== checkpointId))
-            alert('Checkpoint deleted')
+            toast.success('Checkpoint deleted')
         } catch (error) {
             console.error('Error deleting checkpoint:', error)
-            alert('Failed to delete checkpoint')
+            toast.error('Failed to delete checkpoint')
         }
     }
 
@@ -544,7 +548,10 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 <Bot className="w-6 h-6 text-primary" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent tracking-tight">
+                                <h1 className={cn(
+                                    "text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent tracking-tight",
+                                    showEditorPanel && "hidden 2xl:block"
+                                )}>
                                     Genesis
                                 </h1>
                             </div>
@@ -555,7 +562,10 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             {/* Editor Controls - Only show if messages exist */}
                             {messages.length > 0 && (
                                 <>
-                                    <div className="flex gap-1 bg-secondary/30 border border-border/50 p-1 shadow-inner rounded-lg hidden md:flex backdrop-blur-sm">
+                                    <div className={cn(
+                                        "flex gap-1 bg-secondary/30 border border-border/50 p-1 shadow-inner rounded-lg backdrop-blur-sm transition-all",
+                                        showEditorPanel ? "hidden 2xl:flex" : "hidden md:flex"
+                                    )}>
                                         <Select value={tone} onValueChange={setTone}>
                                             <SelectTrigger className="w-[120px] bg-transparent border-0 text-sm text-muted-foreground hover:text-foreground font-medium focus:ring-0 transition-colors">
                                                 <SelectValue />
@@ -710,31 +720,32 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                         }
                                                     }}
                                                 />
-                                                <Button
-                                                    onClick={handleSend}
-                                                    disabled={isLoading || !input.trim() || classifyingIntent}
-                                                    className="flex-shrink-0 h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center p-0"
-                                                >
-                                                    {isLoading ? (
-                                                        <div className="w-5 h-5 bg-white rounded-full animate-pulse"></div>
-                                                    ) : (
-                                                        <span className="text-xl">→</span>
-                                                    )}
-                                                </Button>
+                                                <div className="flex items-center gap-2 pb-1">
+                                                    <VoiceInput
+                                                        onTranscription={handleTranscription}
+                                                        className="hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                                                        isCompact={true}
+                                                    />
+                                                    <Button
+                                                        onClick={handleSend}
+                                                        disabled={isLoading || !input.trim() || classifyingIntent}
+                                                        className="flex-shrink-0 h-10 w-10 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center p-0"
+                                                    >
+                                                        {isLoading ? (
+                                                            <div className="w-5 h-5 bg-white rounded-full animate-pulse"></div>
+                                                        ) : (
+                                                            <span className="text-xl">→</span>
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
-
-                                            <VoiceInput
-                                                onTranscription={handleTranscription}
-                                                className="absolute right-16 bottom-3.5 z-10 hover:bg-secondary/80"
-                                                isCompact={true}
-                                            />
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-4">
                                             <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
                                                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Tone</p>
                                                 <Select value={tone} onValueChange={setTone}>
-                                                    <SelectTrigger className="w-[110px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                    <SelectTrigger className="w-[140px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
@@ -749,7 +760,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
                                                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Length</p>
                                                 <Select value={length} onValueChange={setLength}>
-                                                    <SelectTrigger className="w-[100px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                    <SelectTrigger className="w-[120px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
@@ -763,7 +774,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             <div className="p-3 bg-secondary/30 border border-border/50 rounded-xl flex items-center justify-between backdrop-blur-sm group hover:bg-secondary/50 transition-colors">
                                                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pl-2">Model</p>
                                                 <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                                    <SelectTrigger className="w-[130px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
+                                                    <SelectTrigger className="w-[180px] h-8 bg-transparent border-0 text-sm text-foreground font-medium hover:bg-white/5 rounded-lg text-right px-2 shadow-none focus:ring-0">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-popover/95 border-border backdrop-blur-xl">
@@ -946,19 +957,24 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                 )}
 
                                 {/* Input Box */}
-                                <div className="relative group">
-                                    <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
-                                        <Textarea
-                                            value={input}
-                                            onChange={(e) => setInput(e.target.value)}
-                                            placeholder="Ask anything about your blog, get writing tips, or request content creation..."
-                                            className="flex-1 resize-none max-h-24 bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-sm leading-relaxed"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault()
-                                                    handleSend()
-                                                }
-                                            }}
+                                <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
+                                    <Textarea
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        placeholder="Ask anything about your blog, get writing tips, or request content creation..."
+                                        className="flex-1 resize-none max-h-24 bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-sm leading-relaxed"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault()
+                                                handleSend()
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex items-center gap-2 pb-1">
+                                        <VoiceInput
+                                            onTranscription={handleTranscription}
+                                            className="hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                                            isCompact={true}
                                         />
                                         <Button
                                             onClick={handleSend}
@@ -984,30 +1000,25 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                             )}
                                         </Button>
                                     </div>
-                                    <VoiceInput
-                                        onTranscription={handleTranscription}
-                                        className="absolute right-24 bottom-2 z-10 hover:bg-secondary/80"
-                                        isCompact={true}
-                                    />
                                 </div>
 
                                 {/* Helper Text */}
-                                <div className="flex items-center justify-between text-xs text-slate-400 px-2">
-                                    <div className="flex items-center gap-3">
-                                        <span className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 text-xs text-slate-400 px-2">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span className="flex items-center gap-1 whitespace-nowrap">
                                             <span className="text-slate-600">⌨️</span>
                                             Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Enter</span> to send
                                         </span>
-                                        <span className="text-slate-600">•</span>
-                                        <span className="flex items-center gap-1">
+                                        <span className="hidden sm:inline text-slate-600">•</span>
+                                        <span className="flex items-center gap-1 whitespace-nowrap">
                                             <span className="text-slate-600">⇧</span>
-                                            <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> for new line
+                                            <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> new line
                                         </span>
-                                        <span className="text-slate-600">•</span>
-                                        <span className="text-slate-500">AI auto-detects intent (chat vs content)</span>
+                                        <span className="hidden md:inline text-slate-600">•</span>
+                                        <span className="hidden md:inline text-slate-500">AI auto-detects intent</span>
                                     </div>
                                     {messages.length > 0 && (
-                                        <span className="flex items-center gap-2 text-blue-400/70 font-medium">
+                                        <span className="flex items-center gap-2 text-blue-400/70 font-medium whitespace-nowrap ml-auto">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-500/60"></div>
                                             {messages.filter(m => m.type === 'chat').length} chat | {messages.filter(m => m.type === 'blog').length} content
                                         </span>
@@ -1064,7 +1075,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    onClick={() => handleRestoreCheckpoint(cp.id)}
+                                                                    onClick={(e) => handleRestoreCheckpoint(e, cp.id)}
                                                                     className="h-7 w-7 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-950"
                                                                     title="Restore this version"
                                                                 >
@@ -1074,7 +1085,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => handleDeleteCheckpoint(cp.id)}
+                                                                onClick={(e) => handleDeleteCheckpoint(e, cp.id)}
                                                                 className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-950"
                                                                 title="Delete checkpoint"
                                                             >

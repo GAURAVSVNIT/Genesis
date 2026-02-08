@@ -24,7 +24,8 @@ export function ImageControls({ content, currentImageUrl, onImageUpdate }: Image
         setIsGenerating(true)
         try {
             // Call the regenerate-image endpoint
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/content/regenerate-image`, {
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+            const response = await fetch(`${BACKEND_URL}/v1/content/regenerate-image`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

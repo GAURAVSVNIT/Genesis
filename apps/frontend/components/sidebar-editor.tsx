@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { CKEditor, useCKEditorCloud } from '@ckeditor/ckeditor5-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -81,15 +81,26 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
 
         let newContent = content
 
-        // Regex to find existing images (Markdown or HTML)
-        const imgRegex = /(!\[.*?\]\(.*?\))|(<figure class="image">.*?<\/figure>)|(<img[^>]+src="([^">]+)"[^>]*>)/g
+        // Regex to find existing images (Markdown or HTML) - now more flexible for extra classes
+        const imgRegex = /(!\[[\s\S]*?\]\([\s\S]*?\))|(<figure\s+[^>]*class="[^"]*image[^"]*"[^>]*>[\s\S]*?<\/figure>)|(<img[^>]+src="([^">]+)"[^>]*>)/g
+
+        console.log('[SidebarEditor] Current content length:', content.length)
+        console.log('[SidebarEditor] Regex test:', imgRegex.test(content))
+        // Reset regex lastIndex after test()
+        imgRegex.lastIndex = 0
+
+        const matches = content.match(imgRegex)
+        console.log('[SidebarEditor] Found matches:', matches)
 
         if (!newUrl) {
             // REMOVE: Strip all images
             newContent = newContent.replace(imgRegex, '')
+            console.log('[SidebarEditor] Removed images. New content length:', newContent.length)
         } else {
             // ADD / REPLACE
             if (imgRegex.test(newContent)) {
+                // Reset regex lastIndex after test()
+                imgRegex.lastIndex = 0
                 // Replace existing
                 newContent = newContent.replace(imgRegex, '')
                 newContent = injectImage(newContent, newUrl)
@@ -106,14 +117,18 @@ export function SidebarEditor({ initialData, onSave, onClose, title = 'Edit Cont
         }
     }, [content, editor, injectImage])
 
-    // Effect to handle external image updates (e.g. "Insert into Blog" clicked again)
+    // Track previous initialImageUrl to detect external changes
+    const prevInitialImageUrlRef = useRef(initialImageUrl)
+
+    // Effect to handle external image updates ONLY when the prop changes
     useEffect(() => {
-        if (initialImageUrl && initialImageUrl !== currentImageUrl) {
-            setTimeout(() => {
+        if (initialImageUrl !== prevInitialImageUrlRef.current) {
+            prevInitialImageUrlRef.current = initialImageUrl
+            if (initialImageUrl) {
                 handleImageUpdate(initialImageUrl)
-            }, 0)
+            }
         }
-    }, [initialImageUrl, currentImageUrl, handleImageUpdate])
+    }, [initialImageUrl, handleImageUpdate])
 
     // Share State
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
