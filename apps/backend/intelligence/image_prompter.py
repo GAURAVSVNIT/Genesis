@@ -22,21 +22,30 @@ def get_temperature_for_tone(tone: str) -> float:
     # Medium Creativity (Default)
     return 0.5
 
-async def generate_image_prompt(topic: str, keywords: List[str], tone: str = "neutral", summary: Optional[str] = None, trends: Optional[List[str]] = None, model: str = "gemini-2.5-flash") -> str:
+async def generate_image_prompt(
+    topic: str, 
+    keywords: List[str], 
+    tone: str = "neutral", 
+    summary: Optional[str] = None, 
+    trends: Optional[List[str]] = None, 
+    model: str = "gemini-2.5-flash", # Use 2.5-flash as default for better instruction following than 1.5-flash for this task
+    style_preference: Optional[str] = None,
+    specific_focus: Optional[str] = None,
+    exclude_elements: Optional[List[str]] = None,
+    variation_level: Optional[str] = "medium"
+) -> str:
     """
-    Generate a detailed image prompt based on the blog topic, tone, optional summary, and trends.
-    Supports both Gemini and OpenAI models based on the model parameter.
-    
-    Args:
-        topic: Main topic for the image
-        keywords: Relevant keywords
-        tone: Content tone
-        summary: Optional content summary
-        trends: Optional trending elements
-        model: Model to use (gemini-2.5-flash, gpt-4o-mini, etc.)
+    Generate a detailed image prompt based on the blog topic, context, and style preferences.
     """
     try:
-        temperature = get_temperature_for_tone(tone)
+        # Base temperature - lean towards creativity
+        temperature = 0.7 
+        
+        # Adjust temperature based on variation level
+        if variation_level == "high":
+            temperature = 0.9
+        elif variation_level == "low":
+            temperature = 0.4
         
         # Determine which model to use
         use_openai = model.startswith("gpt") or model.startswith("o1")
@@ -49,41 +58,48 @@ async def generate_image_prompt(topic: str, keywords: List[str], tone: str = "ne
             if not settings.OPENAI_API_KEY:
                 print("[ImagePrompter] Missing OpenAI API Key, using simple fallback")
                 fallback_keywords = ", ".join(keywords[:3])
-                return f"A professional {tone} photograph depicting {topic}. Featured elements: {fallback_keywords}. High-quality, detailed composition with dramatic lighting, photorealistic style, 4K resolution, sharp focus."
+                return f"A professional {tone} photograph depicting {topic}. Featured elements: {fallback_keywords}. High-quality, detailed composition."
             
             client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         
         system_context = (
-            "You are an expert AI Art Director specializing in creating DALL-E 3 prompts. "
-            "Your goal is to write a detailed, specific visual description that will generate a highly relevant feature image. "
+            "You are an expert Editorial Illustrator and Concept Artist. "
+            "Your goal is to visualize a specific scene or concept described in the 'Content Context' into a highly detailed, award-winning image prompt for DALL-E 3/Imagen. "
             "\n\nRULES:\n"
-            "- Be SPECIFIC about the subject matter and context\n"
-            "- Include concrete visual elements that directly relate to the topic\n"
-            "- Describe lighting, composition, color palette, and atmosphere\n"
-            "- Use clear, literal descriptions (DALL-E understands concrete terms better than abstract concepts)\n"
-            "- NO text, logos, or words in the image\n"
-            "- NO generic phrases like 'professional' or 'high quality'\n"
-            "- Start directly with the visual description, no introductory text\n"
-            "\nStyles: Photorealistic photography, Digital illustration, 3D render, Minimalist design, Cinematic scene"
+            "- **VISUALIZE THE SCENE**: Do not just list keywords. Describe *what is happening*.\n"
+            "- **BE BOLD**: Avoid generic, safe, or stock-photo style descriptions. Go for dramatic lighting, interesting angles, and dynamic compositions.\n"
+            "- **SHOW, DON'T TELL**: Instead of saying 'inspirational', describe 'warm golden hour lighting illuminating a mountaintop'.\n"
+            "- **CONTEXT IS KING**: Use the provided Content Context to find a specific metaphor or scene to depict.\n"
+            "- Start directly with the visual description.\n"
+            "- NO text, logos, or words in the image.\n"
         )
         
         user_prompt = (
-            f"Blog Topic: {topic}\n"
-            f"Keywords: {', '.join(keywords[:5])}\n"  # Limit to top 5 keywords
+            f"Main Topic: {topic}\n"
+            f"Keywords: {', '.join(keywords[:5])}\n"
             f"Content Tone: {tone}\n"
         )
 
+        if style_preference:
+            user_prompt += f"Visual Style: {style_preference} (Strictly adhere to this style)\n"
+            
+        if specific_focus:
+            user_prompt += f"Primary Focus/Subject: {specific_focus}\n"
+            
+        if exclude_elements:
+             user_prompt += f"Avoid Including: {', '.join(exclude_elements)}\n"
+
         if trends:
-             user_prompt += f"Trending Visual Elements: {', '.join(trends[:3])}\n"  # Top 3 trends
+             user_prompt += f"Trending Visual Elements to Incorporate: {', '.join(trends[:3])}\n"
         
         if summary:
-            # Use the summary to provide specific context
-            user_prompt += f"\nContent Context: {summary[:1500]}\n"
+            # High priority on context
+            user_prompt += f"\nCONTENT CONTEXT (Visualize a specific scene from this): \n{summary[:2000]}\n"
             
         user_prompt += (
-            "\nCreate a specific, detailed visual description for DALL-E 3. "
-            "Focus on concrete elements, scenes, and objects that directly represent the topic. "
-            "Describe what should be in the foreground, background, lighting, and mood:"
+            "\nTask: Write a cohesive, descriptive visual prompt. "
+            "Combine the style, tone, and context into a single, vivid scene description. "
+            "Focus on lighting (e.g., volumetric, cinematic), texture, and composition."
         )
         
         if use_openai:

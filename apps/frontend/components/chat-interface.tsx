@@ -7,12 +7,13 @@ import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useGeneration } from '@/lib/hooks/use-generation'
-import { classifyIntent } from '@/lib/api/classifier'
+import { classifyIntent, IntentClassificationResponse } from '@/lib/api/classifier'
 import { saveContext, loadContext, createCheckpoint, listCheckpoints, restoreCheckpoint, deleteCheckpoint } from '@/lib/api/context'
 import { cn } from '@/lib/utils'
 import { User, Bot, Edit2, RefreshCw, Save, PanelRight, Clock, BookmarkPlus, Trash2, X } from 'lucide-react'
 import ClientSideCustomEditor from './client-side-custom-editor'
 import SidebarEditor from './sidebar-editor'
+import { VoiceInput } from '@/components/ui/voice-input'
 import ReactMarkdown from 'react-markdown'
 import { toast } from "sonner" // Import toast
 import {
@@ -42,6 +43,8 @@ type Message = {
     tone?: string
     length?: string
     image_url?: string
+    topic?: string
+    refined_query?: string
 }
 
 type BlogCheckpoint = {
@@ -134,7 +137,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         type: m.type as any, // Cast or update context API type separately if needed
                         timestamp: m.timestamp.toISOString(),
                         tone: m.tone,
-                        length: m.length
+                        length: m.length,
+                        image_url: m.image_url
                     })),
                     chat_messages: chatMessages.map(m => ({
                         id: m.id,
@@ -143,7 +147,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                         type: m.type as any,
                         timestamp: m.timestamp.toISOString(),
                         tone: m.tone,
-                        length: m.length
+                        length: m.length,
+                        image_url: m.image_url
                     })),
                     current_blog_content: blogMsg?.content
                 })
@@ -166,7 +171,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     }
 
     // Classify intent using backend classifier
-    const classifyPromptType = async (text: string): Promise<'blog' | 'chat' | 'edit' | 'rewrite' | 'image'> => {
+    const classifyPromptType = async (text: string): Promise<IntentClassificationResponse> => {
         try {
             setClassifyingIntent(true)
             const contextSummary = getContextSummary()
@@ -177,10 +182,16 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             })
 
             console.log('[DEBUG] Classification result:', result)
-            return result.intent as 'blog' | 'chat' | 'edit' | 'rewrite' | 'image'
+            return result
         } catch (error) {
             console.error('Classification failed, falling back to frontend detection:', error)
-            return fallbackClassifyPromptType(text)
+            const fallbackIntent = fallbackClassifyPromptType(text)
+            return {
+                intent: fallbackIntent,
+                confidence: 0.5,
+                reasoning: 'Fallback frontend detection',
+                cached: false
+            }
         } finally {
             setClassifyingIntent(false)
         }
@@ -241,11 +252,15 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
     }, [messages])
 
 
+    const handleTranscription = (text: string) => {
+        setInput(prev => prev ? `${prev} ${text}` : text)
+    }
 
     const handleSend = async () => {
         if (!input.trim() || isLoading || classifyingIntent) return
 
-        const messageType = await classifyPromptType(input)
+        const classificationResult = await classifyPromptType(input)
+        const messageType = classificationResult.intent
 
         const userMsg: Message = {
             id: crypto.randomUUID(),
@@ -254,7 +269,9 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             timestamp: new Date(),
             type: messageType,
             tone,
-            length
+            length,
+            topic: classificationResult.topic,
+            refined_query: classificationResult.refined_query
         }
 
         const updatedMessages = [...messages, userMsg]
@@ -310,7 +327,9 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
             intent: msg.type, // Pass the detected intent!
             tone: msg.tone || 'informative',
             length: msg.length || 'medium',
-            model: selectedModel
+            model: selectedModel,
+            topic: msg.topic,
+            refined_query: msg.refined_query
         })
 
 
@@ -382,8 +401,17 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
         try {
             const title = `Blog Version ${checkpoints.length + 1}`
             const chatContext = messages
-                .filter(m => m.type === 'chat')
-                .map(m => ({ id: m.id, role: m.role, content: m.content, timestamp: m.timestamp.toISOString(), tone: m.tone, length: m.length }))
+                .filter(m => ['chat', 'image', 'blog', 'edit', 'rewrite'].includes(m.type))
+                .map(m => ({
+                    id: m.id,
+                    role: m.role,
+                    content: m.content,
+                    timestamp: m.timestamp.toISOString(),
+                    tone: m.tone,
+                    length: m.length,
+                    image_url: m.image_url,
+                    type: m.type // Also save type to restore correctly
+                }))
 
             await createCheckpoint({
                 conversation_id: conversationId,
@@ -439,9 +467,10 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                     role: msg.role as 'user' | 'assistant',
                     content: msg.content,
                     timestamp: new Date(msg.timestamp),
-                    type: 'chat' as const,
+                    type: (msg.type as any) || 'chat',
                     tone: msg.tone,
-                    length: msg.length
+                    length: msg.length,
+                    image_url: msg.image_url
                 }))
 
                 restoredMessages = restoredMessages.concat(restoredChatMessages)
@@ -455,7 +484,8 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                 timestamp: new Date(),
                 type: 'blog',
                 tone: restored.tone || tone,
-                length: restored.length || length
+                length: restored.length || length,
+                image_url: restored.image_url
             }
 
             restoredMessages.push(restoredMsg)
@@ -515,7 +545,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                             </div>
                             <div>
                                 <h1 className="text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent tracking-tight">
-                                    Genesis
+                                    Verbix AI
                                 </h1>
                             </div>
                         </div>
@@ -657,7 +687,7 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                     </div>
                                     <div className="space-y-4 text-center">
                                         <h3 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-blue-200 inline-block px-6 py-2">
-                                            Welcome to Genesis
+                                            Welcome to Verbix AI
                                         </h3>
                                         <p className="text-muted-foreground max-w-lg mx-auto leading-relaxed text-lg font-light">
                                             Powered by advanced AI agents, ready to generate professional content tailored to your needs.
@@ -692,6 +722,12 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
                                                     )}
                                                 </Button>
                                             </div>
+
+                                            <VoiceInput
+                                                onTranscription={handleTranscription}
+                                                className="absolute right-16 bottom-3.5 z-10 hover:bg-secondary/80"
+                                                isCompact={true}
+                                            />
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-4">
@@ -894,87 +930,94 @@ export function ChatInterface({ isAuthenticated }: ChatInterfaceProps) {
 
 
                 {/* Neo-Brutalist Input Footer - ONLY SHOW IF MESSAGES EXIST */}
-                {messages.length > 0 && (
-                    <div className="sticky bottom-0 border-t-2 border-border bg-background shadow-none z-10">
-                        <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
-                            {/* Error Display */}
-                            {error && (
-                                <div className="p-4 bg-red-900/20 border border-red-700/30 rounded-lg text-red-200 text-sm flex items-start gap-3 animate-in fade-in-50 duration-300">
-                                    <span className="text-lg flex-shrink-0 mt-0.5">⚠️</span>
-                                    <div>
-                                        <p className="font-medium">Error occurred</p>
-                                        <p className="text-red-300/80 text-xs mt-1">{error}</p>
+                {
+                    messages.length > 0 && (
+                        <div className="sticky bottom-0 border-t-2 border-border bg-background shadow-none z-10">
+                            <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
+                                {/* Error Display */}
+                                {error && (
+                                    <div className="p-4 bg-red-900/20 border border-red-700/30 rounded-lg text-red-200 text-sm flex items-start gap-3 animate-in fade-in-50 duration-300">
+                                        <span className="text-lg flex-shrink-0 mt-0.5">⚠️</span>
+                                        <div>
+                                            <p className="font-medium">Error occurred</p>
+                                            <p className="text-red-300/80 text-xs mt-1">{error}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Input Box */}
-                            <div className="relative group">
-                                <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
-                                    <Textarea
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        placeholder="Ask anything about your blog, get writing tips, or request content creation..."
-                                        className="flex-1 resize-none max-h-24 bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-sm leading-relaxed"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault()
-                                                handleSend()
-                                            }
-                                        }}
-                                    />
-                                    <Button
-                                        onClick={handleSend}
-                                        disabled={isLoading || !input.trim() || classifyingIntent}
-                                        className="flex-shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold uppercase text-xs border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 px-4 py-2"
-                                        size="sm"
-                                    >
-                                        {isLoading ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                                Generating
-                                            </div>
-                                        ) : classifyingIntent ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                                Analyzing
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <span>→</span>
-                                                Send
-                                            </div>
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Helper Text */}
-                            <div className="flex items-center justify-between text-xs text-slate-400 px-2">
-                                <div className="flex items-center gap-3">
-                                    <span className="flex items-center gap-1">
-                                        <span className="text-slate-600">⌨️</span>
-                                        Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Enter</span> to send
-                                    </span>
-                                    <span className="text-slate-600">•</span>
-                                    <span className="flex items-center gap-1">
-                                        <span className="text-slate-600">⇧</span>
-                                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> for new line
-                                    </span>
-                                    <span className="text-slate-600">•</span>
-                                    <span className="text-slate-500">AI auto-detects intent (chat vs content)</span>
-                                </div>
-                                {messages.length > 0 && (
-                                    <span className="flex items-center gap-2 text-blue-400/70 font-medium">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500/60"></div>
-                                        {messages.filter(m => m.type === 'chat').length} chat | {messages.filter(m => m.type === 'blog').length} content
-                                    </span>
                                 )}
+
+                                {/* Input Box */}
+                                <div className="relative group">
+                                    <div className="relative flex gap-3 items-end bg-secondary/30 border border-border/50 rounded-2xl px-5 py-4 transition-all duration-300 shadow-sm hover:shadow-md hover:bg-secondary/40 backdrop-blur-md">
+                                        <Textarea
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            placeholder="Ask anything about your blog, get writing tips, or request content creation..."
+                                            className="flex-1 resize-none max-h-24 bg-transparent border-0 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-0 text-sm leading-relaxed"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault()
+                                                    handleSend()
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            onClick={handleSend}
+                                            disabled={isLoading || !input.trim() || classifyingIntent}
+                                            className="flex-shrink-0 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold uppercase text-xs border border-white/10 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 px-4 py-2"
+                                            size="sm"
+                                        >
+                                            {isLoading ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                    Generating
+                                                </div>
+                                            ) : classifyingIntent ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                    Analyzing
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <span>→</span>
+                                                    Send
+                                                </div>
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <VoiceInput
+                                        onTranscription={handleTranscription}
+                                        className="absolute right-24 bottom-2 z-10 hover:bg-secondary/80"
+                                        isCompact={true}
+                                    />
+                                </div>
+
+                                {/* Helper Text */}
+                                <div className="flex items-center justify-between text-xs text-slate-400 px-2">
+                                    <div className="flex items-center gap-3">
+                                        <span className="flex items-center gap-1">
+                                            <span className="text-slate-600">⌨️</span>
+                                            Press <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Enter</span> to send
+                                        </span>
+                                        <span className="text-slate-600">•</span>
+                                        <span className="flex items-center gap-1">
+                                            <span className="text-slate-600">⇧</span>
+                                            <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">Shift+Enter</span> for new line
+                                        </span>
+                                        <span className="text-slate-600">•</span>
+                                        <span className="text-slate-500">AI auto-detects intent (chat vs content)</span>
+                                    </div>
+                                    {messages.length > 0 && (
+                                        <span className="flex items-center gap-2 text-blue-400/70 font-medium">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500/60"></div>
+                                            {messages.filter(m => m.type === 'chat').length} chat | {messages.filter(m => m.type === 'blog').length} content
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
 
 
             {/* Right Sidebar - Editor or Checkpoints */}

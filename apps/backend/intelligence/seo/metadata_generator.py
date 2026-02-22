@@ -8,8 +8,10 @@ Generates:
 - Image alt text
 """
 
-from typing import Dict, List
-from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import Dict, List, Optional
+from langchain_google_vertexai import ChatVertexAI
+from langchain_core.prompts import ChatPromptTemplate
+from core.config import settings
 import json
 
 
@@ -22,10 +24,11 @@ class MetadataGenerator:
         Args:
             model_name: AI model for generation
         """
-        self.model = ChatGoogleGenerativeAI(
+        self.model = ChatVertexAI(
             model=model_name,
             temperature=0.6,
-            max_output_tokens=2048
+            max_output_tokens=2048,
+            project=settings.GCP_PROJECT_ID,
         )
     
     async def generate(
