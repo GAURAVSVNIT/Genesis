@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 
 import "./globals.css";
-import { Navigation } from "@/components/navigation";
 import { GuestMigrationHandler } from "@/components/guest-migration-handler";
 import { SignupMigrationHandler } from "@/components/signup-migration-handler";
 import { GuestSessionInit } from "@/components/guest-session-init";
@@ -20,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Genesis - AI Content Generator",
+  title: "Verbix AI - AI Content Generator",
   description: "Generate blogs, images, and videos with AI",
 };
 
@@ -32,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground overflow-x-hidden w-full`}
       >
         <Suspense>
           <GuestSessionInit />

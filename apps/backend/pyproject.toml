@@ -26,6 +26,7 @@ dependencies = [
     # Supabase
     "supabase>=2.4.0",
     "google-cloud-aiplatform>=1.132.0",
+    "google-cloud-storage>=3.0.0",
     "sentence-transformers>=5.2.0",
     "scikit-learn>=1.8.0",
     "scipy>=1.16.3",

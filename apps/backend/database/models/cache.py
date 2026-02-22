@@ -122,7 +122,7 @@ class PromptCache(Base):
     
     # Response cache
     response_text = Column(Text, nullable=False)
-    response_hash = Column(String(64), nullable=False, index=True)
+    response_hash = Column(String(64), nullable=True, index=True)
     
     # Generation metadata
     model = Column(String(100), default="gemini-2.5-flash")

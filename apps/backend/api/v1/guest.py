@@ -30,19 +30,11 @@ class MigrationRequest(BaseModel):
 
 def get_db():
     """Get database session."""
-    db = None
+    db = SessionLocal()
     try:
-        db = SessionLocal()
         yield db
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        yield None
     finally:
-        try:
-            if db:
-                db.close()
-        except:
-            pass
+        db.close()
 
 @router.post("/chat/{guest_id}")
 async def save_guest_message(

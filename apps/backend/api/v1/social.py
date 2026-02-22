@@ -165,9 +165,41 @@ def callback_linkedin(
              # Fallback for newer API responses or limited scopes
              full_name = profile.get("name", "LinkedIn User")
         
+        # Helper to ensure UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+             print(f"[ERROR] Invalid UUID: {user_id}")
+             raise HTTPException(status_code=400, detail="Invalid User ID")
+
+        # Check if user exists
+        user = db.query(User).filter(User.id == user_uuid).first()
+        if not user:
+            # Create shadow user/placeholder for this ID if it doesn't exist
+            print(f"[INFO] User {user_id} not found, creating placeholder user for LinkedIn connection.")
+            try:
+                new_user = User(
+                    id=user_uuid,
+                    email=f"{user_id}@placeholder.local", 
+                    username=f"user_{user_id[:8]}",
+                    password_hash="social_login_managed",
+                    full_name=full_name,
+                    status="active",
+                    account_type="free", 
+                    email_verified=True
+                )
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+            except Exception as user_create_error:
+                db.rollback()
+                print(f"[ERROR] Failed to create placeholder user: {user_create_error}")
+                # We try to proceed, but likely will fail on FK. 
+                raise HTTPException(status_code=400, detail=f"User account creation failed: {str(user_create_error)}")
+
         # Check for existing connection
         existing = db.query(UserPlatformConnection).filter(
-            UserPlatformConnection.user_id == user_id,
+            UserPlatformConnection.user_id == user_uuid,
             UserPlatformConnection.platform == "linkedin"
         ).first()
         
@@ -179,8 +211,8 @@ def callback_linkedin(
             db.commit()
         else:
             new_conn = UserPlatformConnection(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
+                id=uuid.uuid4(),
+                user_id=user_uuid,
                 platform="linkedin",
                 access_token=access_token,
                 platform_user_id=urn,
@@ -289,9 +321,38 @@ def callback_twitter(
         platform_user_id = user_info.get("id")
         username = user_info.get("username")
         
+        # Helper to ensure UUID
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+             raise HTTPException(status_code=400, detail="Invalid User ID")
+
+        # Check if user exists
+        user = db.query(User).filter(User.id == user_uuid).first()
+        if not user:
+             print(f"[INFO] User {user_id} not found, creating placeholder user for Twitter connection.")
+             try:
+                new_user = User(
+                    id=user_uuid,
+                    email=f"{user_id}@twitter.placeholder", 
+                    username=f"twitter_{username}", # Use twitter username
+                    password_hash="social_login_managed",
+                    full_name=username,
+                    status="active",
+                    account_type="free", 
+                    email_verified=True
+                )
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+             except Exception as u_err:
+                 db.rollback()
+                 print(f"[ERROR] Failed to create placeholder user for Twitter: {u_err}")
+                 raise HTTPException(status_code=400, detail=f"User account creation failed: {str(u_err)}")
+
         # Save Connection
         existing = db.query(UserPlatformConnection).filter(
-            UserPlatformConnection.user_id == user_id,
+            UserPlatformConnection.user_id == user_uuid,
             UserPlatformConnection.platform == "twitter"
         ).first()
 
@@ -303,8 +364,8 @@ def callback_twitter(
             db.commit()
         else:
              new_conn = UserPlatformConnection(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
+                id=uuid.uuid4(),
+                user_id=user_uuid,
                 platform="twitter",
                 access_token=access_token,
                 platform_user_id=platform_user_id,

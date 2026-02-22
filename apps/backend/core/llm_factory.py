@@ -24,7 +24,7 @@ class LLMFactory:
                 model_name=model_name,
                 temperature=temperature,
                 project=settings.GCP_PROJECT_ID,
-                convert_system_message_to_human=True # specific fix for some gemini versions
+                # convert_system_message_to_human=True <- Deprecated, removed to support native system messages
             )
             
         # OpenAI

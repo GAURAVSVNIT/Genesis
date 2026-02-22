@@ -11,7 +11,8 @@ This module provides advanced keyword analysis including:
 from typing import Dict, List, Tuple, Optional
 import re
 from collections import Counter
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
+from core.config import settings
 
 
 class KeywordAnalyzer:
@@ -35,9 +36,10 @@ class KeywordAnalyzer:
         """
         self.use_ai_for_lsi = use_ai_for_lsi
         if use_ai_for_lsi:
-            self.model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro",
-                temperature=0.3  # Lower temperature for more focused suggestions
+            self.model = ChatVertexAI(
+                model_name="gemini-1.5-pro",
+                temperature=0.3,  # Lower temperature for more focused suggestions
+                project=settings.GCP_PROJECT_ID,
             )
     
     def analyze(

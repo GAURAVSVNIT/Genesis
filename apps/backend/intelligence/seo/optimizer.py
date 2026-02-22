@@ -14,7 +14,8 @@ from typing import Dict, List, Optional
 import json
 import re
 import asyncio
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
+from core.config import settings
 
 from .config import SEOConfig, DEFAULT_CONFIG
 from .keyword_analyzer import KeywordAnalyzer
@@ -46,10 +47,11 @@ class SEOOptimizer:
         self.config = config or DEFAULT_CONFIG
         
         # Initialize AI model
-        self.model = ChatGoogleGenerativeAI(
+        self.model = ChatVertexAI(
             model=self.config.model_name,
             temperature=self.config.temperature,
-            max_output_tokens=self.config.max_tokens
+            max_output_tokens=self.config.max_tokens,
+            project=settings.GCP_PROJECT_ID,
         )
         
         # Initialize analyzers
@@ -79,9 +81,9 @@ class SEOOptimizer:
             # Fallback to simple splitting
             return [w for w in text.split() if len(w) > 4][:max_keywords]
 
-    async def optimize_content(self, content: str, target_keyword: str) -> Dict:
+    async def optimize_content(self, content: str, target_keyword: str, context: Optional[str] = None) -> Dict:
         """Wrapper for optimize method to maintain compatibility."""
-        return await self.optimize(content, keywords=[target_keyword])
+        return await self.optimize(content, keywords=[target_keyword], context=context)
 
     async def optimize(
         self,

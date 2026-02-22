@@ -2,12 +2,12 @@
 
 ## When Are Checkpoints Created?
 
-### ❌ NOT Automatic
+### NOT Automatic
 - Doesn't auto-save on every message
 - Doesn't auto-save on every edit
 - Doesn't auto-save on timer
 
-### ✅ Manual Only
+### Manual Only
 - User explicitly clicks **[Save as Version]** button
 - User provides title & description
 - User decides when to snapshot

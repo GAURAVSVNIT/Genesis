@@ -86,6 +86,7 @@ class CreateCheckpointRequest(BaseModel):
     description: Optional[str] = None
     tone: Optional[str] = None
     length: Optional[str] = None
+    image_url: Optional[str] = None
     context_snapshot: Optional[dict] = None
 
 
@@ -101,6 +102,7 @@ class CheckpointResponse(BaseModel):
     is_active: bool
     tone: Optional[str]
     length: Optional[str]
+    image_url: Optional[str]
 
     class Config:
         from_attributes = True
@@ -129,14 +131,14 @@ async def save_context(
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"📝 SAVE_CONTEXT called for conversation_id: {request.conversation_id}, user_id: {request.user_id}")
-    logger.debug(f"📊 Message count: {len(request.messages)}")
-    logger.debug(f"💬 Chat message count: {len(request.chat_messages)}")
-    logger.debug(f"📄 Blog content length: {len(request.current_blog_content) if request.current_blog_content else 0}")
+    logger.info(f" SAVE_CONTEXT called for conversation_id: {request.conversation_id}, user_id: {request.user_id}")
+    logger.debug(f" Message count: {len(request.messages)}")
+    logger.debug(f" Chat message count: {len(request.chat_messages)}")
+    logger.debug(f" Blog content length: {len(request.current_blog_content) if request.current_blog_content else 0}")
     
     try:
         if not db:
-            logger.warning("⚠️  Database not available, returning success response")
+            logger.warning("  Database not available, returning success response")
             return {
                 "status": "saved",
                 "message_count": len(request.messages),
@@ -162,18 +164,18 @@ async def save_context(
             "messages": [m.dict() for m in request.messages],
             "chat_messages": [m.dict() for m in request.chat_messages],
             "current_blog_content": request.current_blog_content,
-            "current_blog_image": request.current_blog_image  # ⭐ Save image
+            "current_blog_image": request.current_blog_image  #  Save image
         }
         
         if existing_context:
-            logger.info(f"📝 Updating existing context for conversation: {request.conversation_id}")
+            logger.info(f" Updating existing context for conversation: {request.conversation_id}")
             existing_context.messages_context = context_data
             existing_context.chat_context = chat_context
             existing_context.blog_context = request.current_blog_content or ""
             existing_context.message_count = len(request.messages)
             existing_context.last_updated_at = datetime.utcnow()
         else:
-            logger.info(f"🆕 Creating new context for conversation: {request.conversation_id}")
+            logger.info(f" Creating new context for conversation: {request.conversation_id}")
             new_context = ConversationContext(
                 user_id=request.user_id,
                 conversation_id=request.conversation_id,
@@ -185,9 +187,9 @@ async def save_context(
             )
             db.add(new_context)
         
-        logger.info(f"💾 Committing context to database...")
+        logger.info(f" Committing context to database...")
         db.commit()
-        logger.info(f"✅ Context saved successfully for conversation: {request.conversation_id}")
+        logger.info(f" Context saved successfully for conversation: {request.conversation_id}")
         
         return {
             "status": "saved",
@@ -201,7 +203,7 @@ async def save_context(
         except:
             pass
         import traceback
-        logger.error(f"❌ Error saving context: {e}")
+        logger.error(f" Error saving context: {e}")
         logger.error(traceback.format_exc())
         # Return success even if database is unavailable (graceful degradation)
         return {
@@ -324,11 +326,11 @@ async def list_checkpoints(
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"📋 LIST_CHECKPOINTS called for conversation_id: {conversation_id}, user_id: {user_id}")
+    logger.info(f" LIST_CHECKPOINTS called for conversation_id: {conversation_id}, user_id: {user_id}")
     
     try:
         if not db:
-            logger.warning("⚠️  Database not available, returning empty list")
+            logger.warning("  Database not available, returning empty list")
             return []
         
         checkpoints = db.query(BlogCheckpoint).filter(
@@ -336,7 +338,7 @@ async def list_checkpoints(
             BlogCheckpoint.user_id == user_id
         ).order_by(BlogCheckpoint.version_number.desc()).all()
         
-        logger.info(f"✅ Found {len(checkpoints)} checkpoints for conversation: {conversation_id}")
+        logger.info(f" Found {len(checkpoints)} checkpoints for conversation: {conversation_id}")
         for cp in checkpoints:
             logger.debug(f"  - Checkpoint {cp.version_number}: '{cp.title}' (created: {cp.created_at})")
         
@@ -357,7 +359,7 @@ async def list_checkpoints(
         ]
     
     except Exception as e:
-        logger.error(f"❌ Error listing checkpoints: {e}")
+        logger.error(f" Error listing checkpoints: {e}")
         import traceback
         logger.error(traceback.format_exc())
         # Return empty list if database is unavailable
@@ -468,16 +470,36 @@ async def restore_checkpoint(
             ])
             
             if existing_context:
-                existing_context.messages_context = context_snapshot
+                # Reconstruct full context data for storage persistence
+                messages = context_snapshot.get('chatContext', [])
+                
+                context_data = {
+                    "user_id": user_id,
+                    "conversation_id": conv_id,
+                    "messages": messages,
+                    "chat_messages": [m for m in messages if isinstance(m, dict) and m.get('type') == 'chat'],
+                    "current_blog": checkpoint.content
+                }
+                
+                existing_context.messages_context = context_data
                 existing_context.chat_context = chat_context
                 existing_context.blog_context = checkpoint.content
                 existing_context.message_count = len(chat_messages)
                 existing_context.last_updated_at = datetime.utcnow()
             else:
+                messages = context_snapshot.get('chatContext', [])
+                context_data = {
+                    "user_id": user_id,
+                    "conversation_id": conv_id,
+                    "messages": messages,
+                    "chat_messages": [m for m in messages if isinstance(m, dict) and m.get('type') == 'chat'],
+                    "current_blog": checkpoint.content
+                }
+                
                 new_context = ConversationContext(
                     user_id=user_id,
                     conversation_id=conv_id,
-                    messages_context=context_snapshot,
+                    messages_context=context_data,
                     chat_context=chat_context,
                     blog_context=checkpoint.content,
                     message_count=len(chat_messages),
@@ -495,8 +517,8 @@ async def restore_checkpoint(
             "content": checkpoint.content,
             "image_url": checkpoint.image_url,
             "context_snapshot": context_snapshot,
-            "chat_messages": chat_messages,  # ⭐ Explicitly return chat messages
-            "all_messages": all_messages,    # ⭐ Explicitly return all messages  
+            "chat_messages": chat_messages,  #  Explicitly return chat messages
+            "all_messages": all_messages,    #  Explicitly return all messages  
             "messages_count": len(chat_messages),
             "tone": checkpoint.tone,
             "length": checkpoint.length,
@@ -509,8 +531,6 @@ async def restore_checkpoint(
     except Exception as e:
         db.rollback()
         print(f"Error restoring checkpoint: {e}")
-        import traceback
-        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 

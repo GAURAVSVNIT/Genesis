@@ -127,6 +127,7 @@ class BlogCheckpoint(BaseModel):
     version_number = Column(Integer, nullable=False)  # Sequential version number
     tone = Column(String(50))
     length = Column(String(50))
+    image_url = Column(Text, nullable=True)
     is_active = Column(Boolean, default=False)  # Current active version
     
     # Note: Relationships disabled for string keys to avoid FK constraints

@@ -10,6 +10,7 @@ export interface MessageSnapshot {
     timestamp: string
     tone?: string
     length?: string
+    image_url?: string
 }
 
 export interface SaveContextRequest {
@@ -58,7 +59,9 @@ export async function saveContext(request: SaveContextRequest): Promise<{
     timestamp: string
 }> {
     try {
-        const response = await fetch(`${BACKEND_URL}/v1/context/save`, {
+        const url = `${BACKEND_URL}/v1/context/save`
+        console.log('[DEBUG] saveContext calling:', url)
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -178,6 +181,7 @@ export async function restoreCheckpoint(
     content: string
     tone?: string
     length?: string
+    image_url?: string
     context_snapshot?: Record<string, unknown>
     restored_at: string
 }> {

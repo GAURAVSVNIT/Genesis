@@ -30,7 +30,7 @@ async def generate_blog(req: BlogRequest, http_request: Request):
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "http://localhost:8000/v1/content/generate",
+                "http://127.0.0.1:8080/v1/content/generate",
                 json=new_request,
                 timeout=30.0
             )
